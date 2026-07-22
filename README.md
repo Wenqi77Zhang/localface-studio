@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 0 - 策划冻结与合规基线。
+当前状态：阶段 1 - 工程骨架与独立环境。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -26,8 +26,9 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 - [隐私与威胁模型](docs/PRIVACY_THREAT_MODEL.md)
 - [第一版验收标准](docs/ACCEPTANCE_CRITERIA.md)
 - [阶段 0 进展日志](docs/progress/phase-00.md)
+- [阶段 1 进展日志](docs/progress/phase-01.md)
 - [旧项目脱敏复盘](docs/research/LEGACY_PROJECT_REVIEW.md)
 
-## 阶段门禁
+## 当前阶段
 
-阶段 0 经项目负责人确认后，才进入阶段 1。项目采用单一公开 GitHub 仓库展示演进，但每次推送前必须执行敏感内容扫描。阶段 1 才会创建独立运行环境和代码工程；大型模型的下载必须等到模型来源、哈希和许可证提示机制均已确定。
+阶段 0 已于 2026-07-23 通过产品负责人验收。阶段 1 将创建独立运行环境和可测试的前后端工程骨架。项目采用单一公开 GitHub 仓库展示演进，每次推送前必须执行敏感内容扫描；大型模型的下载仍须等待模型来源、哈希和许可证提示机制确定。
