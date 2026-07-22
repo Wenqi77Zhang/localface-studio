@@ -1,0 +1,71 @@
+# Local environments and secrets
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node and frontend
+node_modules/
+.pnpm-store/
+.vite/
+coverage/
+playwright-report/
+test-results/
+
+# AI models and binary checkpoints
+models/
+model-cache/
+*.onnx
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.engine
+
+# Private inputs, outputs, identity data, and runtime state
+data/
+uploads/
+outputs/
+results/
+runtime/
+temp/
+tmp/
+cache/
+logs/
+*.log
+*.jsonl
+docs/research/private/
+tests/fixtures/private/
+
+# Legacy binary reports are never published from this repository
+*.pdf
+
+# Local IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local Codex metadata
+.codex/
+.agents/
+work/
