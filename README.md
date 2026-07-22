@@ -4,6 +4,8 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 当前状态：阶段 0 - 策划冻结与合规基线。
 
+公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
+
 ## 已冻结的产品方向
 
 - 第一版处理单张照片，并为视频扩展预留接口。
