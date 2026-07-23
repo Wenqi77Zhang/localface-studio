@@ -13,7 +13,10 @@ from localface_studio.infrastructure.config import Settings
 def test_health_contract_and_query_is_not_logged(capsys) -> None:  # type: ignore[no-untyped-def]
     async def request_health() -> httpx.Response:
         transport = httpx.ASGITransport(app=create_app(Settings(log_level="INFO")))
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+        ) as client:
             return await client.get("/api/v1/health?token=must-not-appear")
 
     response = asyncio.run(request_health())

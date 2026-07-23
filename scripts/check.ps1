@@ -10,6 +10,7 @@ $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $Ruff = Join-Path $Root ".venv\Scripts\ruff.exe"
 $Mypy = Join-Path $Root ".venv\Scripts\mypy.exe"
 $Pytest = Join-Path $Root ".venv\Scripts\pytest.exe"
+$PytestBaseTemp = Join-Path $Root (".pytest-run-" + [guid]::NewGuid().ToString("N"))
 $NodeDir = Join-Path $Root ".tools\node"
 $Npm = Join-Path $NodeDir "npm.cmd"
 $SafeRoot = $Root.Replace("\", "/")
@@ -31,7 +32,7 @@ Set-Location $Root
 Invoke-Checked $Ruff check src tests scripts
 Invoke-Checked $Ruff format --check src tests scripts
 Invoke-Checked $Mypy src scripts tests
-Invoke-Checked $Pytest -q --cov --cov-report=term-missing
+Invoke-Checked $Pytest -q "--basetemp=$PytestBaseTemp" --cov --cov-report=term-missing
 Invoke-Checked $Python scripts\scan_public_repo.py
 Invoke-Checked $Python scripts\verify_backend.py
 & git -c "safe.directory=$SafeRoot" diff --check
