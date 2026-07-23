@@ -1,6 +1,6 @@
 # LocalFace Studio 许可证与资产清单
 
-状态：阶段 1 工程依赖快照
+状态：阶段 2 工程依赖快照
 
 核验日期：2026-07-23
 
@@ -55,6 +55,7 @@
 | Python 配置依赖 | pydantic-settings 2.14.2（MIT）、python-dotenv 1.2.2（BSD-3-Clause） | 绿色；只读取本地环境配置，不提交 `.env`。 |
 | Python 开发依赖 | Pytest 9.1.1、Ruff 0.15.22、Mypy 2.3.0、HTTPX 0.28.1、pytest-cov 7.1.0、Hatchling 1.31.0 | 仅用于测试、构建和质量门禁；发布前仍由完整许可证报告确认其锁定版本声明。 |
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
+| Python 图片与上传依赖 | Pillow 12.3.0（MIT-CMU）、python-multipart 0.0.32（Apache-2.0） | 绿色；仅用于本地图片解码校验与 multipart 上传解析，发布时保留许可证文本。 |
 | Python 元数据缺失项 | annotated-types 0.7.0、colorama 0.4.6 的已安装元数据未提供标准许可证表达式 | 待人工复核；不得因为元数据为空而推断为无许可证或自动归类为 MIT。 |
 | 前端直接运行依赖 | React 19.2.8、React DOM 19.2.8（MIT） | 绿色。 |
 | 前端直接开发依赖 | TypeScript 6.0.3（Apache-2.0）、Vite 8.1.5、OxcLint 1.75.0、React 插件与类型包（MIT） | 绿色；仅用于构建和检查。 |
