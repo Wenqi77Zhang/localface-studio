@@ -54,8 +54,28 @@ export interface CreateTaskInput {
 
 export interface CreatedTask {
   expiresAt: string
-  status: string
+  status: TaskStatus
   taskId: string
+}
+
+export type TaskStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'timed_out'
+  | 'expired'
+  | 'deleted'
+
+export type WorkflowNode = 'validate' | 'prepare' | 'simulate' | 'inspect' | 'export'
+
+export interface TaskEvent {
+  currentNode: WorkflowNode | null
+  errorCode: string | null
+  status: TaskStatus
+  taskId: string
+  version: number
 }
 
 export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
@@ -85,13 +105,67 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     !isObject(payload) ||
     typeof payload.task_id !== 'string' ||
     typeof payload.status !== 'string' ||
+    !TASK_STATUSES.has(payload.status as TaskStatus) ||
     typeof payload.expires_at !== 'string'
   ) {
     throw new Error('后端返回了无效的任务信息。')
   }
   return {
     taskId: payload.task_id,
-    status: payload.status,
+    status: payload.status as TaskStatus,
     expiresAt: payload.expires_at,
   }
+}
+
+const TASK_STATUSES = new Set<TaskStatus>([
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'timed_out',
+  'expired',
+  'deleted',
+])
+const WORKFLOW_NODES = new Set<WorkflowNode>([
+  'validate',
+  'prepare',
+  'simulate',
+  'inspect',
+  'export',
+])
+
+export function parseTaskEvent(serialized: string): TaskEvent {
+  let payload: unknown
+  try {
+    payload = JSON.parse(serialized)
+  } catch {
+    throw new Error('任务事件不是有效的 JSON。')
+  }
+  if (
+    !isObject(payload) ||
+    typeof payload.task_id !== 'string' ||
+    typeof payload.version !== 'number' ||
+    typeof payload.status !== 'string' ||
+    !TASK_STATUSES.has(payload.status as TaskStatus) ||
+    !(
+      payload.current_node === null ||
+      (typeof payload.current_node === 'string' &&
+        WORKFLOW_NODES.has(payload.current_node as WorkflowNode))
+    ) ||
+    !(payload.error_code === null || typeof payload.error_code === 'string')
+  ) {
+    throw new Error('任务事件结构无效。')
+  }
+  return {
+    taskId: payload.task_id,
+    version: payload.version,
+    status: payload.status as TaskStatus,
+    currentNode: payload.current_node as WorkflowNode | null,
+    errorCode: payload.error_code,
+  }
+}
+
+export function taskEventsUrl(taskId: string): string {
+  return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/events`
 }

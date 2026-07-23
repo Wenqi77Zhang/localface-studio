@@ -269,6 +269,12 @@
   border-color: var(--accent-border);
 }
 
+.photo-picker--attention .photo-picker__surface {
+  border-style: solid;
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(224, 102, 102, 0.1);
+}
+
 .photo-picker__surface input {
   width: 1px;
   height: 1px;
@@ -374,6 +380,18 @@
   accent-color: var(--accent);
 }
 
+.authorization--attention {
+  border-color: rgba(224, 102, 102, 0.7);
+  background: rgba(224, 102, 102, 0.06);
+}
+
+.attention-text {
+  margin-top: 4px;
+  display: block;
+  color: var(--danger);
+  font-size: 11px;
+}
+
 .workflow-canvas {
   min-height: 520px;
   padding: 34px;
@@ -415,6 +433,27 @@
   border: 1px solid var(--border-strong);
   border-radius: 14px;
   background: rgba(19, 25, 33, 0.96);
+}
+
+.workflow-node--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(121, 215, 194, 0.08);
+}
+
+.workflow-node--complete {
+  border-color: rgba(75, 194, 142, 0.48);
+}
+
+.workflow-node--complete .node-state {
+  color: var(--success);
+}
+
+.workflow-node--stopped {
+  border-color: rgba(224, 102, 102, 0.55);
+}
+
+.workflow-node--stopped .node-state {
+  color: var(--danger);
 }
 
 .node-number {
@@ -467,6 +506,20 @@
   color: var(--danger) !important;
 }
 
+.submit-action {
+  max-width: 310px;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.submit-guidance {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: right;
+}
+
 .workflow-footer button {
   min-width: 112px;
   padding: 10px 16px;
@@ -476,6 +529,28 @@
   background: var(--accent);
   font: 600 12px/1 var(--sans);
   cursor: pointer;
+}
+
+.workflow-footer .submit-button--incomplete {
+  border: 1px solid rgba(223, 164, 79, 0.58);
+  color: var(--warning);
+  background: rgba(223, 164, 79, 0.08);
+}
+
+.workflow-footer .submit-button--pristine {
+  border: 1px solid var(--border-strong);
+  color: #7b8490;
+  background: #222933;
+}
+
+.workflow-footer .submit-button--pristine:hover {
+  color: var(--text);
+  border-color: #465260;
+  background: #29323d;
+}
+
+.workflow-footer .submit-button--incomplete:hover {
+  background: rgba(223, 164, 79, 0.14);
 }
 
 .workflow-footer button:disabled {
@@ -516,6 +591,16 @@
   .workflow-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .submit-action {
+    width: 100%;
+    max-width: none;
+    justify-items: stretch;
+  }
+
+  .submit-guidance {
+    text-align: left;
   }
 
   .workflow-canvas { padding: 24px 14px; }

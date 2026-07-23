@@ -6,6 +6,7 @@ const MINIMUM_PREVIEW_RATIO = 3 / 4
 const MAXIMUM_PREVIEW_RATIO = 16 / 9
 
 interface PhotoPickerProps {
+  attentionMessage: string | null
   detail: string
   file: File | null
   label: string
@@ -44,6 +45,7 @@ function usePreviewUrl(file: File | null): string | null {
 }
 
 export default function PhotoPicker({
+  attentionMessage,
   detail,
   file,
   label,
@@ -68,7 +70,13 @@ export default function PhotoPicker({
   }
 
   return (
-    <section className={`photo-picker${file ? ' photo-picker--ready' : ''}`}>
+    <section
+      className={[
+        'photo-picker',
+        file ? 'photo-picker--ready' : '',
+        attentionMessage ? 'photo-picker--attention' : '',
+      ].join(' ')}
+    >
       <div className="photo-picker__heading">
         <div>
           <strong>{label}</strong>
@@ -121,8 +129,14 @@ export default function PhotoPicker({
         )}
       </label>
 
-      <p className={error ? 'field-message field-message--error' : 'field-message'}>
-        {error ?? (file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 仅在本机预览` : '尚未选择')}
+      <p
+        className={
+          error || attentionMessage ? 'field-message field-message--error' : 'field-message'
+        }
+      >
+        {error ??
+          attentionMessage ??
+          (file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 仅在本机预览` : '尚未选择')}
       </p>
     </section>
   )

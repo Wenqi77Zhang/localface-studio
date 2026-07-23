@@ -1,7 +1,16 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import './App.css'
 import PhotoPicker from './PhotoPicker'
-import { checkHealth, createTask, establishSession, type CreatedTask } from './api'
+import {
+  checkHealth,
+  createTask,
+  establishSession,
+  parseTaskEvent,
+  taskEventsUrl,
+  type CreatedTask,
+  type TaskEvent,
+  type WorkflowNode,
+} from './api'
 
 type ApiState = 'checking' | 'online' | 'offline'
 type SessionState = 'checking' | 'ready' | 'unavailable'
@@ -9,12 +18,53 @@ type OutputFormat = 'png' | 'jpeg'
 type Retention = '30m' | '24h' | '7d'
 
 const workflowStages = [
-  { number: '01', title: '输入照片', detail: '身份来源图与目标场景图' },
-  { number: '02', title: '检测多脸', detail: '定位人物，但不自动决定替换对象' },
-  { number: '03', title: '选择目标', detail: '每次只选择并替换一名人物' },
-  { number: '04', title: '精准换脸', detail: '原生 ONNX 后端，可替换为 ComfyUI' },
-  { number: '05', title: '安全导出', detail: '写入 AI 元数据，默认显示可见水印' },
+  { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
+  { node: 'prepare', number: '02', title: '任务准备', detail: '建立隔离工作区和处理参数' },
+  { node: 'simulate', number: '03', title: '模拟处理', detail: '生成明确标记的非换脸结果' },
+  { node: 'inspect', number: '04', title: '输出检查', detail: '验证尺寸、编码和必要元数据' },
+  { node: 'export', number: '05', title: '安全导出', detail: '原子写入最终结果文件' },
 ] as const
+
+const workflowOrder = workflowStages.map((stage) => stage.node)
+const terminalStatuses = new Set([
+  'succeeded',
+  'failed',
+  'cancelled',
+  'timed_out',
+  'expired',
+  'deleted',
+])
+const COMPLETED_TASK_RESET_DELAY_MS = 3_000
+type NodeVisualState = 'pending' | 'active' | 'complete' | 'stopped'
+const nodeStateLabels: Record<NodeVisualState, string> = {
+  pending: '等待',
+  active: '处理中',
+  complete: '完成',
+  stopped: '已停止',
+}
+
+function nodeDisplayState(
+  taskEvent: TaskEvent | null,
+  node: WorkflowNode,
+): NodeVisualState {
+  if (taskEvent === null || taskEvent.status === 'queued') {
+    return 'pending'
+  }
+  if (taskEvent.status === 'succeeded') {
+    return 'complete'
+  }
+  const nodeIndex = workflowOrder.indexOf(node)
+  const currentIndex = taskEvent.currentNode === null
+    ? -1
+    : workflowOrder.indexOf(taskEvent.currentNode)
+  if (nodeIndex < currentIndex) {
+    return 'complete'
+  }
+  if (nodeIndex === currentIndex) {
+    return taskEvent.status === 'running' ? 'active' : 'stopped'
+  }
+  return 'pending'
+}
 
 function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
@@ -31,6 +81,9 @@ function App() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [createdTask, setCreatedTask] = useState<CreatedTask | null>(null)
+  const [taskEvent, setTaskEvent] = useState<TaskEvent | null>(null)
+  const [eventError, setEventError] = useState<string | null>(null)
+  const [validationAttempted, setValidationAttempted] = useState(false)
   const submitLock = useRef(false)
 
   useEffect(() => {
@@ -58,19 +111,82 @@ function App() {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    if (createdTask === null) {
+      return
+    }
+    const events = new EventSource(taskEventsUrl(createdTask.taskId))
+    const receiveTaskEvent = (event: MessageEvent<string>) => {
+      try {
+        const nextEvent = parseTaskEvent(event.data)
+        setTaskEvent((current) =>
+          current === null || nextEvent.version > current.version ? nextEvent : current,
+        )
+        setEventError(null)
+        if (terminalStatuses.has(nextEvent.status)) {
+          events.close()
+        }
+      } catch (error) {
+        setEventError(error instanceof Error ? error.message : '无法读取任务进度。')
+        events.close()
+      }
+    }
+    events.addEventListener('task', receiveTaskEvent)
+    events.onerror = () => {
+      setEventError('实时进度连接中断。')
+      events.close()
+    }
+    return () => {
+      events.removeEventListener('task', receiveTaskEvent)
+      events.close()
+    }
+  }, [createdTask])
+
   const apiLabel =
     apiState === 'online' ? '在线' : apiState === 'offline' ? '未连接' : '检查中'
+  const latestTaskStatus = taskEvent?.status ?? createdTask?.status ?? null
+  const taskInProgress =
+    latestTaskStatus !== null && !terminalStatuses.has(latestTaskStatus)
   const canSubmit =
     apiState === 'online' &&
     csrfToken !== null &&
     sourcePhoto !== null &&
     targetPhoto !== null &&
     authorizationConfirmed &&
+    !taskInProgress &&
     !submitting
   const knownRatios = [sourceRatio, targetRatio].filter(
     (ratio): ratio is number => ratio !== null,
   )
   const sharedPreviewRatio = knownRatios.length === 0 ? 16 / 9 : Math.min(...knownRatios)
+  const missingRequirements = [
+    sourcePhoto === null ? '身份来源图' : null,
+    targetPhoto === null ? '目标场景图' : null,
+    !authorizationConfirmed ? '授权确认' : null,
+    apiState !== 'online' || csrfToken === null ? '本地后端连接' : null,
+  ].filter((requirement): requirement is string => requirement !== null)
+  const validationMessage =
+    missingRequirements.length === 0
+      ? null
+      : `请先完成：${missingRequirements.join('、')}。`
+  const submitButtonState = canSubmit
+    ? 'ready'
+    : sourcePhoto === null && targetPhoto === null && !authorizationConfirmed
+      ? 'pristine'
+      : 'incomplete'
+
+  useEffect(() => {
+    if (createdTask === null || taskInProgress || authorizationConfirmed) {
+      return
+    }
+    const timeout = window.setTimeout(() => {
+      setCreatedTask(null)
+      setTaskEvent(null)
+      setEventError(null)
+      setSubmitError(null)
+    }, COMPLETED_TASK_RESET_DELAY_MS)
+    return () => window.clearTimeout(timeout)
+  }, [authorizationConfirmed, createdTask, taskInProgress])
 
   function changePhoto(role: 'source' | 'target', file: File | null) {
     if (role === 'source') {
@@ -82,13 +198,18 @@ function App() {
     }
     setAuthorizationConfirmed(false)
     setCreatedTask(null)
+    setTaskEvent(null)
+    setEventError(null)
     setSubmitError(null)
   }
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitting || taskInProgress || submitLock.current) {
+      return
+    }
+    setValidationAttempted(true)
     if (
-      submitLock.current ||
       !canSubmit ||
       csrfToken === null ||
       sourcePhoto === null ||
@@ -100,6 +221,8 @@ function App() {
     setSubmitting(true)
     setSubmitError(null)
     setCreatedTask(null)
+    setTaskEvent(null)
+    setEventError(null)
     try {
       const task = await createTask({
         authorizationConfirmed,
@@ -111,13 +234,31 @@ function App() {
         watermarkEnabled,
       })
       setCreatedTask(task)
+      setTaskEvent({
+        taskId: task.taskId,
+        version: -1,
+        status: task.status,
+        currentNode: null,
+        errorCode: null,
+      })
       setAuthorizationConfirmed(false)
+      setValidationAttempted(false)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '任务提交失败。')
     } finally {
       submitLock.current = false
       setSubmitting(false)
     }
+  }
+
+  function changeAuthorization(checked: boolean) {
+    if (checked && createdTask !== null && !taskInProgress) {
+      setCreatedTask(null)
+      setTaskEvent(null)
+      setEventError(null)
+      setSubmitError(null)
+    }
+    setAuthorizationConfirmed(checked)
   }
 
   return (
@@ -176,6 +317,9 @@ function App() {
 
           <div className="photo-grid" aria-label="图片输入">
             <PhotoPicker
+              attentionMessage={
+                validationAttempted && sourcePhoto === null ? '请上传身份来源图。' : null
+              }
               label="身份来源图"
               detail="提供需要保留的身份特征"
               file={sourcePhoto}
@@ -184,6 +328,9 @@ function App() {
               previewRatio={sharedPreviewRatio}
             />
             <PhotoPicker
+              attentionMessage={
+                validationAttempted && targetPhoto === null ? '请上传目标场景图。' : null
+              }
               label="目标场景图"
               detail="提供姿态、背景与待替换人物"
               file={targetPhoto}
@@ -225,35 +372,49 @@ function App() {
             </label>
           </section>
 
-          <label className="authorization">
+          <label
+            className={[
+              'authorization',
+              validationAttempted && !authorizationConfirmed
+                ? 'authorization--attention'
+                : '',
+            ].join(' ')}
+          >
             <input
               type="checkbox"
               checked={authorizationConfirmed}
-              onChange={(event) => setAuthorizationConfirmed(event.currentTarget.checked)}
+              disabled={taskInProgress}
+              onChange={(event) => changeAuthorization(event.currentTarget.checked)}
             />
             <span>
               我确认拥有处理这两张图片及其中人物肖像的合法授权，并知晓当前输出为明确标记的模拟结果。
+              {validationAttempted && !authorizationConfirmed && (
+                <strong className="attention-text">请先勾选确认知晓。</strong>
+              )}
             </span>
           </label>
 
           <div className="workflow-canvas">
             <div className="canvas-grid" aria-hidden="true" />
             <ol className="workflow-list">
-              {workflowStages.map((stage, index) => (
-                <li className="workflow-step" key={stage.number}>
-                  <article className="workflow-node">
-                    <span className="node-number">{stage.number}</span>
-                    <div>
-                      <h3>{stage.title}</h3>
-                      <p>{stage.detail}</p>
-                    </div>
-                    <span className="node-state">待接入</span>
-                  </article>
-                  {index < workflowStages.length - 1 && (
-                    <span className="flow-link" aria-hidden="true">↓</span>
-                  )}
-                </li>
-              ))}
+              {workflowStages.map((stage, index) => {
+                const nodeState = nodeDisplayState(taskEvent, stage.node)
+                return (
+                  <li className="workflow-step" key={stage.number}>
+                    <article className={`workflow-node workflow-node--${nodeState}`}>
+                      <span className="node-number">{stage.number}</span>
+                      <div>
+                        <h3>{stage.title}</h3>
+                        <p>{stage.detail}</p>
+                      </div>
+                      <span className="node-state">{nodeStateLabels[nodeState]}</span>
+                    </article>
+                    {index < workflowStages.length - 1 && (
+                      <span className="flow-link" aria-hidden="true">↓</span>
+                    )}
+                  </li>
+                )
+              })}
             </ol>
           </div>
 
@@ -261,16 +422,32 @@ function App() {
             <div aria-live="polite">
               <p>
                 {createdTask
-                  ? `任务已提交：${createdTask.status}`
+                  ? `任务状态：${taskEvent?.status ?? createdTask.status}`
                   : sourcePhoto && targetPhoto
                     ? '两张图片已就绪，请确认授权后提交。'
                     : '请先选择身份来源图和目标场景图。'}
               </p>
               {submitError && <p className="submit-error">{submitError}</p>}
+              {eventError && <p className="submit-error">{eventError}</p>}
             </div>
-            <button type="submit" disabled={!canSubmit}>
-              {submitting ? '正在提交…' : '开始模拟处理'}
-            </button>
+            <div className="submit-action">
+              {validationAttempted && validationMessage && (
+                <span className="submit-guidance" role="alert">
+                  {validationMessage}
+                </span>
+              )}
+              <button
+                className={`submit-button--${submitButtonState}`}
+                type="submit"
+                disabled={submitting || taskInProgress}
+              >
+                {submitting
+                  ? '正在提交…'
+                  : taskInProgress
+                    ? '任务处理中'
+                    : '开始模拟处理'}
+              </button>
+            </div>
           </footer>
         </form>
       </main>
