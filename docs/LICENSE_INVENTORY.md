@@ -52,6 +52,8 @@
 | 依赖范围 | 已锁定版本或许可证集合 | 当前判断 |
 |---|---|---|
 | Python 直接依赖 | FastAPI 0.139.2（MIT）、Uvicorn 0.51.0（BSD-3-Clause） | 绿色；发布物仍需保留相应版权与许可证文本。 |
+| Python 配置依赖 | pydantic-settings 2.14.2（MIT）、python-dotenv 1.2.2（BSD-3-Clause） | 绿色；只读取本地环境配置，不提交 `.env`。 |
+| Python 开发依赖 | Pytest 9.1.1、Ruff 0.15.22、Mypy 2.3.0、HTTPX 0.28.1、pytest-cov 7.1.0 | 仅用于测试和质量门禁；发布前仍由完整许可证报告确认其锁定版本声明。 |
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
 | Python 元数据缺失项 | annotated-types 0.7.0、colorama 0.4.6 的已安装元数据未提供标准许可证表达式 | 待人工复核；不得因为元数据为空而推断为无许可证或自动归类为 MIT。 |
 | 前端直接运行依赖 | React 19.2.8、React DOM 19.2.8（MIT） | 绿色。 |

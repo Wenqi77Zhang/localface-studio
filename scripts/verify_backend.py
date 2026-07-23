@@ -10,7 +10,6 @@ from urllib.request import urlopen
 
 import uvicorn
 
-
 HOST = "127.0.0.1"
 PORT = 8765
 HEALTH_URL = f"http://{HOST}:{PORT}/api/v1/health"
@@ -48,8 +47,11 @@ def wait_for_health() -> dict[str, str]:
 
     while time.monotonic() < deadline:
         try:
-            with urlopen(HEALTH_URL, timeout=1) as response:  # noqa: S310
-                return json.load(response)
+            with urlopen(HEALTH_URL, timeout=1) as response:
+                payload: object = json.load(response)
+                if payload != {"status": "ok"}:
+                    raise RuntimeError(f"Unexpected health response: {payload!r}")
+                return {"status": "ok"}
         except (URLError, TimeoutError) as error:
             last_error = error
             time.sleep(0.1)

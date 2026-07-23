@@ -5,15 +5,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import subprocess
 import threading
 import time
+from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import uvicorn
-
 
 ROOT = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
@@ -110,8 +109,11 @@ def wait_for_text(url: str) -> str:
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            with urlopen(url, timeout=1) as response:  # noqa: S310
-                return response.read().decode("utf-8")
+            with urlopen(url, timeout=1) as response:
+                body: object = response.read()
+                if not isinstance(body, bytes):
+                    raise RuntimeError("Local service returned a non-byte response body.")
+                return body.decode("utf-8")
         except (URLError, TimeoutError) as error:
             last_error = error
             time.sleep(0.1)
