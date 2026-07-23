@@ -22,6 +22,7 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 - [产品需求](docs/PRODUCT_REQUIREMENTS.md)
 - [项目路线图](docs/PROJECT_PLAN.md)
 - [架构决策](docs/architecture/ADR-001-hybrid-backend.md)
+- [工具链与目录结构决策](docs/architecture/ADR-002-toolchain-and-layout.md)
 - [许可证清单](docs/LICENSE_INVENTORY.md)
 - [隐私与威胁模型](docs/PRIVACY_THREAT_MODEL.md)
 - [第一版验收标准](docs/ACCEPTANCE_CRITERIA.md)
