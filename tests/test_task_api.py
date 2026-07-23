@@ -52,6 +52,7 @@ def task_form(
     *,
     authorization: str = "true",
     output_format: str = "png",
+    jpeg_quality: str = "95",
     watermark: str = "true",
     retention: str = "30m",
     target: bytes | None = None,
@@ -59,6 +60,7 @@ def task_form(
     data = {
         "authorization_confirmed": authorization,
         "output_format": output_format,
+        "jpeg_quality": jpeg_quality,
         "watermark_enabled": watermark,
         "retention": retention,
     }
@@ -80,7 +82,12 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
         async with running_client(app) as client:
             csrf = await establish_session(client)
-            data, files = task_form(output_format="jpeg", watermark="false", retention="7d")
+            data, files = task_form(
+                output_format="jpeg",
+                jpeg_quality="73",
+                watermark="false",
+                retention="24h",
+            )
             response = await client.post(
                 "/api/v1/tasks",
                 data=data,
@@ -94,6 +101,7 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         assert payload["status"] == "queued"
         assert payload["consent_version"] == CONSENT_VERSION
         assert payload["output_format"] == "jpeg"
+        assert payload["jpeg_quality"] == 73
         assert payload["watermark_enabled"] is False
         assert payload["source"] == {"image_format": "png", "width": 20, "height": 16}
         assert payload["target"] == {"image_format": "png", "width": 24, "height": 18}
@@ -107,8 +115,9 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         assert stored is not None
         assert stored.status is TaskStatus.SUCCEEDED
         assert stored.consent_version == CONSENT_VERSION
+        assert stored.jpeg_quality == 73
         assert datetime.fromisoformat(payload["expires_at"]) - stored.created_at == timedelta(
-            days=7
+            hours=24
         )
         workspace = tmp_path / "runtime" / "tasks" / payload["task_id"]
         assert {path.name for path in workspace.iterdir()} == {
@@ -139,11 +148,29 @@ def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: P
                 files=invalid_files,
                 headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
             )
+            quality_data, quality_files = task_form(jpeg_quality="101")
+            invalid_quality = await client.post(
+                "/api/v1/tasks",
+                data=quality_data,
+                files=quality_files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
+            retention_data, retention_files = task_form(retention="7d")
+            invalid_retention = await client.post(
+                "/api/v1/tasks",
+                data=retention_data,
+                files=retention_files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
 
         assert denied.status_code == 422
         assert denied.json()["code"] == "authorization_required"
         assert invalid.status_code == 422
         assert invalid.json()["code"] == "invalid_image"
+        assert invalid_quality.status_code == 422
+        assert invalid_quality.json()["code"] == "invalid_form"
+        assert invalid_retention.status_code == 422
+        assert invalid_retention.json()["code"] == "invalid_form"
         task_root = tmp_path / "runtime" / "tasks"
         assert list(task_root.iterdir()) == []
 

@@ -51,6 +51,7 @@ class CreatedTaskResponse(BaseModel):
     expires_at: datetime
     consent_version: str
     output_format: str
+    jpeg_quality: int
     watermark_enabled: bool
     source: TaskImageResponse
     target: TaskImageResponse
@@ -66,18 +67,20 @@ class TaskResponse(BaseModel):
     updated_at: datetime
     expires_at: datetime
     output_format: str
+    jpeg_quality: int
     watermark_enabled: bool
 
 
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
-    async with request.form(max_files=2, max_fields=4, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=2, max_fields=5, max_part_size=16 * 1024) as form:
         try:
             source = _upload(form, "source")
             target = _upload(form, "target")
             authorization_confirmed = _boolean(form, "authorization_confirmed", False)
             output_format = OutputFormat(_text(form, "output_format", OutputFormat.PNG.value))
+            jpeg_quality = _integer(form, "jpeg_quality", 95, minimum=5, maximum=100)
             watermark_enabled = _boolean(form, "watermark_enabled", True)
             retention = RetentionOption(
                 _text(form, "retention", RetentionOption.THIRTY_MINUTES.value)
@@ -93,6 +96,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 target=target,
                 authorization_confirmed=authorization_confirmed,
                 output_format=output_format,
+                jpeg_quality=jpeg_quality,
                 watermark_enabled=watermark_enabled,
                 retention=retention,
             )
@@ -124,6 +128,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
         expires_at=created.task.expires_at,
         consent_version=CONSENT_VERSION,
         output_format=created.task.output_format.value,
+        jpeg_quality=created.task.jpeg_quality,
         watermark_enabled=created.task.watermark_enabled,
         source=_image_response(created.images.source),
         target=_image_response(created.images.target),
@@ -272,6 +277,24 @@ def _boolean(form: FormData, field: str, default: bool) -> bool:
     return value == "true"
 
 
+def _integer(
+    form: FormData,
+    field: str,
+    default: int,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = _text(form, field, str(default))
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise ValueError(f"{field} must be an integer") from error
+    if not minimum <= parsed <= maximum:
+        raise ValueError(f"{field} must be between {minimum} and {maximum}")
+    return parsed
+
+
 def _image_response(image: ValidatedImage) -> TaskImageResponse:
     return TaskImageResponse(
         image_format=image.image_format.value,
@@ -305,6 +328,7 @@ def _task_response(task: TaskRecord) -> TaskResponse:
         updated_at=task.updated_at,
         expires_at=task.expires_at,
         output_format=task.output_format.value,
+        jpeg_quality=task.jpeg_quality,
         watermark_enabled=task.watermark_enabled,
     )
 

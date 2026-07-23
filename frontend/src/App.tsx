@@ -1,11 +1,13 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import './App.css'
 import PhotoPicker from './PhotoPicker'
+import ResultPreview from './ResultPreview'
 import {
   cancelTask,
   checkHealth,
   createTask,
   establishSession,
+  fetchTaskResult,
   getTask,
   parseTaskEvent,
   taskEventsUrl,
@@ -17,7 +19,7 @@ import {
 type ApiState = 'checking' | 'online' | 'offline'
 type SessionState = 'checking' | 'ready' | 'unavailable'
 type OutputFormat = 'png' | 'jpeg'
-type Retention = '30m' | '24h' | '7d'
+type Retention = '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
 
 const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
@@ -79,6 +81,7 @@ function App() {
   const [targetRatio, setTargetRatio] = useState<number | null>(null)
   const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false)
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('png')
+  const [jpegQuality, setJpegQuality] = useState(95)
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -87,6 +90,10 @@ function App() {
   const [createdTask, setCreatedTask] = useState<CreatedTask | null>(null)
   const [taskEvent, setTaskEvent] = useState<TaskEvent | null>(null)
   const [eventError, setEventError] = useState<string | null>(null)
+  const [workflowReset, setWorkflowReset] = useState(false)
+  const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(null)
+  const [resultLoading, setResultLoading] = useState(false)
+  const [resultError, setResultError] = useState<string | null>(null)
   const [validationAttempted, setValidationAttempted] = useState(false)
   const submitLock = useRef(false)
 
@@ -223,13 +230,52 @@ function App() {
       return
     }
     const timeout = window.setTimeout(() => {
-      setCreatedTask(null)
-      setTaskEvent(null)
-      setEventError(null)
-      setSubmitError(null)
+      setWorkflowReset(true)
     }, COMPLETED_TASK_RESET_DELAY_MS)
     return () => window.clearTimeout(timeout)
   }, [authorizationConfirmed, createdTask, taskInProgress])
+
+  useEffect(() => {
+    if (createdTask === null || latestTaskStatus !== 'succeeded') {
+      setResultLoading(false)
+      setResultError(null)
+      setResultPreviewUrl((current) => {
+        if (current !== null) {
+          URL.revokeObjectURL(current)
+        }
+        return null
+      })
+      return
+    }
+    const controller = new AbortController()
+    let objectUrl: string | null = null
+    setResultLoading(true)
+    setResultError(null)
+    const loadResult = async () => {
+      try {
+        const result = await fetchTaskResult(createdTask.taskId, controller.signal)
+        objectUrl = URL.createObjectURL(result)
+        setResultPreviewUrl(objectUrl)
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setResultError(
+            error instanceof Error ? error.message : '无法加载模拟结果。',
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setResultLoading(false)
+        }
+      }
+    }
+    void loadResult()
+    return () => {
+      controller.abort()
+      if (objectUrl !== null) {
+        URL.revokeObjectURL(objectUrl)
+      }
+    }
+  }, [createdTask, latestTaskStatus])
 
   function changePhoto(role: 'source' | 'target', file: File | null) {
     if (role === 'source') {
@@ -245,6 +291,7 @@ function App() {
     setEventError(null)
     setSubmitError(null)
     setCancelling(false)
+    setWorkflowReset(false)
   }
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
@@ -267,10 +314,12 @@ function App() {
     setCreatedTask(null)
     setTaskEvent(null)
     setEventError(null)
+    setWorkflowReset(false)
     try {
       const task = await createTask({
         authorizationConfirmed,
         csrfToken,
+        jpegQuality,
         outputFormat,
         retention,
         source: sourcePhoto,
@@ -287,6 +336,7 @@ function App() {
       })
       setAuthorizationConfirmed(false)
       setValidationAttempted(false)
+      setWorkflowReset(false)
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '任务提交失败。')
     } finally {
@@ -297,8 +347,7 @@ function App() {
 
   function changeAuthorization(checked: boolean) {
     if (checked && createdTask !== null && !taskInProgress) {
-      setCreatedTask(null)
-      setTaskEvent(null)
+      setWorkflowReset(true)
       setEventError(null)
       setSubmitError(null)
     }
@@ -378,7 +427,8 @@ function App() {
           </dl>
         </aside>
 
-        <form className="workflow-panel" aria-labelledby="workflow-title" onSubmit={submitTask}>
+        <div className="workflow-column">
+          <form className="workflow-panel" aria-labelledby="workflow-title" onSubmit={submitTask}>
           <div className="workflow-heading">
             <div>
               <span className="eyebrow">Workflow preview</span>
@@ -412,38 +462,6 @@ function App() {
             />
           </div>
 
-          <section className="task-options" aria-label="处理设置">
-            <label>
-              <span>输出格式</span>
-              <select
-                value={outputFormat}
-                onChange={(event) => setOutputFormat(event.currentTarget.value as OutputFormat)}
-              >
-                <option value="png">PNG（推荐）</option>
-                <option value="jpeg">JPEG</option>
-              </select>
-            </label>
-            <label>
-              <span>本地保留</span>
-              <select
-                value={retention}
-                onChange={(event) => setRetention(event.currentTarget.value as Retention)}
-              >
-                <option value="30m">30 分钟（推荐）</option>
-                <option value="24h">24 小时</option>
-                <option value="7d">7 天（上限）</option>
-              </select>
-            </label>
-            <label className="checkbox-option">
-              <input
-                type="checkbox"
-                checked={watermarkEnabled}
-                onChange={(event) => setWatermarkEnabled(event.currentTarget.checked)}
-              />
-              <span>显示 AI 编辑水印</span>
-            </label>
-          </section>
-
           <label
             className={[
               'authorization',
@@ -466,11 +484,90 @@ function App() {
             </span>
           </label>
 
+          <details className="advanced-settings">
+            <summary>
+              <span>高级设置</span>
+              <small>（输出格式、JPEG 质量、本地保留、AI 水印）</small>
+            </summary>
+            <section className="task-options" aria-label="高级处理设置">
+              <label>
+                <span>输出格式</span>
+                <select
+                  value={outputFormat}
+                  disabled={submitting || taskInProgress}
+                  onChange={(event) =>
+                    setOutputFormat(event.currentTarget.value as OutputFormat)
+                  }
+                >
+                  <option value="png">PNG（推荐）</option>
+                  <option value="jpeg">JPEG</option>
+                </select>
+              </label>
+              {outputFormat === 'jpeg' && (
+                <label className="quality-option">
+                  <span>JPEG 质量</span>
+                  <div className="quality-control">
+                    <div className="quality-track">
+                      <input
+                        id="jpeg-quality"
+                        type="range"
+                        min="5"
+                        max="100"
+                        step="1"
+                        value={jpegQuality}
+                        disabled={submitting || taskInProgress}
+                        aria-label="JPEG 质量"
+                        onChange={(event) =>
+                          setJpegQuality(Number(event.currentTarget.value))
+                        }
+                      />
+                      <span className="quality-default-marker" aria-hidden="true" />
+                    </div>
+                    <output htmlFor="jpeg-quality">
+                      {jpegQuality}%{jpegQuality === 95 ? '（默认）' : ''}
+                    </output>
+                  </div>
+                </label>
+              )}
+              <label>
+                <span>本地保留</span>
+                <select
+                  value={retention}
+                  disabled={submitting || taskInProgress}
+                  onChange={(event) =>
+                    setRetention(event.currentTarget.value as Retention)
+                  }
+                >
+                  <option value="30m">30 分钟（推荐）</option>
+                  <option value="1h">1 小时</option>
+                  <option value="3h">3 小时</option>
+                  <option value="6h">6 小时</option>
+                  <option value="12h">12 小时</option>
+                  <option value="24h">24 小时（上限）</option>
+                </select>
+              </label>
+              <label className="checkbox-option">
+                <input
+                  type="checkbox"
+                  checked={watermarkEnabled}
+                  disabled={submitting || taskInProgress}
+                  onChange={(event) =>
+                    setWatermarkEnabled(event.currentTarget.checked)
+                  }
+                />
+                <span>显示 AI 编辑水印</span>
+              </label>
+            </section>
+          </details>
+
           <div className="workflow-canvas">
             <div className="canvas-grid" aria-hidden="true" />
             <ol className="workflow-list">
               {workflowStages.map((stage, index) => {
-                const nodeState = nodeDisplayState(taskEvent, stage.node)
+                const nodeState = nodeDisplayState(
+                  workflowReset ? null : taskEvent,
+                  stage.node,
+                )
                 return (
                   <li className="workflow-step" key={stage.number}>
                     <article className={`workflow-node workflow-node--${nodeState}`}>
@@ -533,7 +630,16 @@ function App() {
               </div>
             </div>
           </footer>
-        </form>
+          </form>
+          {createdTask !== null && latestTaskStatus === 'succeeded' && (
+            <ResultPreview
+              error={resultError}
+              loading={resultLoading}
+              outputFormat={createdTask.outputFormat}
+              previewUrl={resultPreviewUrl}
+            />
+          )}
+        </div>
       </main>
 
       <footer className="legal-footer">

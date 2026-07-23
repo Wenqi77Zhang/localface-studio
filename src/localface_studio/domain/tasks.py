@@ -37,18 +37,24 @@ class OutputFormat(StrEnum):
 
 
 class RetentionOption(StrEnum):
-    """User-selectable result retention periods with a seven-day hard maximum."""
+    """User-selectable result retention periods with a 24-hour hard maximum."""
 
     THIRTY_MINUTES = "30m"
+    ONE_HOUR = "1h"
+    THREE_HOURS = "3h"
+    SIX_HOURS = "6h"
+    TWELVE_HOURS = "12h"
     ONE_DAY = "24h"
-    SEVEN_DAYS = "7d"
 
     @property
     def duration(self) -> timedelta:
         return {
             RetentionOption.THIRTY_MINUTES: timedelta(minutes=30),
+            RetentionOption.ONE_HOUR: timedelta(hours=1),
+            RetentionOption.THREE_HOURS: timedelta(hours=3),
+            RetentionOption.SIX_HOURS: timedelta(hours=6),
+            RetentionOption.TWELVE_HOURS: timedelta(hours=12),
             RetentionOption.ONE_DAY: timedelta(days=1),
-            RetentionOption.SEVEN_DAYS: timedelta(days=7),
         }[self]
 
 
@@ -90,6 +96,7 @@ class TaskRecord:
     consented_at: datetime
     output_format: OutputFormat
     watermark_enabled: bool
+    jpeg_quality: int = 95
     version: int = 0
     current_node: WorkflowNode | None = None
     error_code: str | None = None
@@ -108,6 +115,8 @@ class TaskRecord:
             raise ValueError("expires_at must be later than created_at")
         if self.version < 0:
             raise ValueError("version must not be negative")
+        if type(self.jpeg_quality) is not int or not 5 <= self.jpeg_quality <= 100:
+            raise ValueError("jpeg_quality must be an integer from 5 to 100")
         if self.error_code is not None and not self.error_code.strip():
             raise ValueError("error_code must be absent or non-blank")
         if self.status is TaskStatus.FAILED and self.error_code is None:

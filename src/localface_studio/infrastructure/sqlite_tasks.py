@@ -37,6 +37,8 @@ class SqliteTaskRepository:
                     consented_at TEXT NOT NULL,
                     output_format TEXT NOT NULL,
                     watermark_enabled INTEGER NOT NULL CHECK (watermark_enabled IN (0, 1)),
+                    jpeg_quality INTEGER NOT NULL DEFAULT 95
+                        CHECK (jpeg_quality BETWEEN 5 AND 100),
                     version INTEGER NOT NULL CHECK (version >= 0),
                     current_node TEXT,
                     error_code TEXT
@@ -47,6 +49,18 @@ class SqliteTaskRepository:
                     ON tasks(status, expires_at);
                 """
             )
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(tasks)").fetchall()
+            }
+            if "jpeg_quality" not in columns:
+                connection.execute(
+                    """
+                    ALTER TABLE tasks
+                    ADD COLUMN jpeg_quality INTEGER NOT NULL DEFAULT 95
+                        CHECK (jpeg_quality BETWEEN 5 AND 100)
+                    """
+                )
 
     def create(self, task: TaskRecord) -> None:
         """Insert a new task, mapping identifier collisions to a stable exception."""
@@ -59,8 +73,8 @@ class SqliteTaskRepository:
                     INSERT INTO tasks (
                         task_id, actor_id, status, created_at, updated_at, expires_at,
                         consent_version, consented_at, output_format, watermark_enabled,
-                        version, current_node, error_code
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        jpeg_quality, version, current_node, error_code
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     self._values(task),
                 )
@@ -89,6 +103,7 @@ class SqliteTaskRepository:
                     expires_at = ?,
                     output_format = ?,
                     watermark_enabled = ?,
+                    jpeg_quality = ?,
                     version = ?,
                     current_node = ?,
                     error_code = ?
@@ -100,6 +115,7 @@ class SqliteTaskRepository:
                     task.expires_at.isoformat(),
                     task.output_format.value,
                     int(task.watermark_enabled),
+                    task.jpeg_quality,
                     task.version,
                     task.current_node.value if task.current_node is not None else None,
                     task.error_code,
@@ -179,6 +195,7 @@ class SqliteTaskRepository:
             task.consented_at.isoformat(),
             task.output_format.value,
             int(task.watermark_enabled),
+            task.jpeg_quality,
             task.version,
             task.current_node.value if task.current_node is not None else None,
             task.error_code,
@@ -198,6 +215,7 @@ class SqliteTaskRepository:
             consented_at=datetime.fromisoformat(str(row["consented_at"])),
             output_format=OutputFormat(str(row["output_format"])),
             watermark_enabled=bool(row["watermark_enabled"]),
+            jpeg_quality=int(row["jpeg_quality"]),
             version=int(row["version"]),
             current_node=WorkflowNode(str(current_node)) if current_node is not None else None,
             error_code=str(row["error_code"]) if row["error_code"] is not None else None,

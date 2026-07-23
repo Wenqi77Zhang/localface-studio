@@ -45,8 +45,9 @@ export async function establishSession(signal: AbortSignal): Promise<string> {
 export interface CreateTaskInput {
   authorizationConfirmed: boolean
   csrfToken: string
+  jpegQuality: number
   outputFormat: 'png' | 'jpeg'
-  retention: '30m' | '24h' | '7d'
+  retention: '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
   source: File
   target: File
   watermarkEnabled: boolean
@@ -54,6 +55,8 @@ export interface CreateTaskInput {
 
 export interface CreatedTask {
   expiresAt: string
+  jpegQuality: number
+  outputFormat: 'png' | 'jpeg'
   status: TaskStatus
   taskId: string
 }
@@ -84,6 +87,7 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
   form.set('target', input.target)
   form.set('authorization_confirmed', String(input.authorizationConfirmed))
   form.set('output_format', input.outputFormat)
+  form.set('jpeg_quality', String(input.jpegQuality))
   form.set('watermark_enabled', String(input.watermarkEnabled))
   form.set('retention', input.retention)
 
@@ -106,7 +110,12 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     typeof payload.task_id !== 'string' ||
     typeof payload.status !== 'string' ||
     !TASK_STATUSES.has(payload.status as TaskStatus) ||
-    typeof payload.expires_at !== 'string'
+    typeof payload.expires_at !== 'string' ||
+    (payload.output_format !== 'png' && payload.output_format !== 'jpeg') ||
+    typeof payload.jpeg_quality !== 'number' ||
+    !Number.isInteger(payload.jpeg_quality) ||
+    payload.jpeg_quality < 5 ||
+    payload.jpeg_quality > 100
   ) {
     throw new Error('后端返回了无效的任务信息。')
   }
@@ -114,6 +123,8 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     taskId: payload.task_id,
     status: payload.status as TaskStatus,
     expiresAt: payload.expires_at,
+    jpegQuality: payload.jpeg_quality,
+    outputFormat: payload.output_format,
   }
 }
 
@@ -210,6 +221,37 @@ export async function getTask(taskId: string): Promise<TaskEvent> {
     throw new Error(detail)
   }
   return parseTaskState(payload, '后端返回了无效的任务状态。')
+}
+
+export async function fetchTaskResult(
+  taskId: string,
+  signal: AbortSignal,
+): Promise<Blob> {
+  const response = await fetch(
+    `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/result`,
+    {
+      credentials: 'same-origin',
+      headers: { Accept: 'image/png,image/jpeg' },
+      signal,
+    },
+  )
+  if (!response.ok) {
+    const payload = await readJson(response)
+    const detail =
+      isObject(payload) && typeof payload.detail === 'string'
+        ? payload.detail
+        : '结果暂时不可用。'
+    throw new Error(detail)
+  }
+  const contentType = response.headers.get('Content-Type')?.split(';', 1)[0]
+  if (contentType !== 'image/png' && contentType !== 'image/jpeg') {
+    throw new Error('后端返回了无法预览的结果格式。')
+  }
+  const result = await response.blob()
+  if (result.size === 0) {
+    throw new Error('后端返回了空的结果文件。')
+  }
+  return result
 }
 
 export function taskEventsUrl(taskId: string): string {

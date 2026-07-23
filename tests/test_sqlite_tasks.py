@@ -1,5 +1,7 @@
 """SQLite task persistence, isolation, expiry, and concurrency tests."""
 
+import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -20,7 +22,12 @@ from localface_studio.domain.tasks import (
 from localface_studio.infrastructure.sqlite_tasks import SqliteTaskRepository
 
 
-def make_task(*, task_id: str = "task-one", actor_id: str = "actor-one") -> TaskRecord:
+def make_task(
+    *,
+    task_id: str = "task-one",
+    actor_id: str = "actor-one",
+    jpeg_quality: int = 95,
+) -> TaskRecord:
     created_at = datetime(2026, 7, 23, 8, tzinfo=UTC)
     return TaskRecord(
         task_id=task_id,
@@ -33,6 +40,7 @@ def make_task(*, task_id: str = "task-one", actor_id: str = "actor-one") -> Task
         consented_at=created_at,
         output_format=OutputFormat.PNG,
         watermark_enabled=True,
+        jpeg_quality=jpeg_quality,
     )
 
 
@@ -136,3 +144,39 @@ def test_expiry_query_requires_timezone_aware_time(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="timezone-aware"):
         repository.list_due_for_expiry(task.created_at.replace(tzinfo=None))
+
+
+def test_initialize_migrates_existing_tasks_to_default_jpeg_quality(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "runtime" / "tasks.sqlite3"
+    database_path.parent.mkdir(parents=True)
+    with closing(sqlite3.connect(database_path)) as connection, connection:
+        connection.execute(
+            """
+            CREATE TABLE tasks (
+                task_id TEXT PRIMARY KEY,
+                actor_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                consent_version TEXT NOT NULL,
+                consented_at TEXT NOT NULL,
+                output_format TEXT NOT NULL,
+                watermark_enabled INTEGER NOT NULL,
+                version INTEGER NOT NULL,
+                current_node TEXT,
+                error_code TEXT
+            )
+            """
+        )
+
+    repository = SqliteTaskRepository(database_path)
+    repository.initialize()
+    task = make_task(jpeg_quality=64)
+    repository.create(task)
+
+    stored = repository.get_for_actor(task.task_id, task.actor_id)
+    assert stored is not None
+    assert stored.jpeg_quality == 64

@@ -8,6 +8,7 @@ import pytest
 from localface_studio.domain.tasks import (
     InvalidTaskTransition,
     OutputFormat,
+    RetentionOption,
     TaskRecord,
     TaskStatus,
     WorkflowNode,
@@ -112,3 +113,21 @@ def test_task_times_must_be_timezone_aware_and_monotonic() -> None:
             TaskStatus.RUNNING,
             at=task.updated_at - timedelta(seconds=1),
         )
+
+
+@pytest.mark.parametrize("quality", [4, 101, 95.0, True])
+def test_jpeg_quality_must_be_a_bounded_integer(quality: object) -> None:
+    with pytest.raises(ValueError, match="jpeg_quality"):
+        replace(make_task(), jpeg_quality=quality)  # type: ignore[arg-type]
+
+
+def test_retention_options_stop_at_24_hours() -> None:
+    assert [option.value for option in RetentionOption] == [
+        "30m",
+        "1h",
+        "3h",
+        "6h",
+        "12h",
+        "24h",
+    ]
+    assert max(option.duration for option in RetentionOption) == timedelta(hours=24)

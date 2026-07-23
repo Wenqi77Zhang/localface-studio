@@ -81,7 +81,13 @@ class SimulationBackend:
         if staging_path.exists():
             staging_path.unlink()
         try:
-            self._save(result, staging_path, task.output_format, metadata)
+            self._save(
+                result,
+                staging_path,
+                task.output_format,
+                metadata,
+                jpeg_quality=task.jpeg_quality,
+            )
             staging_path.replace(result_path)
         finally:
             if staging_path.exists():
@@ -121,6 +127,7 @@ class SimulationBackend:
             "simulation": True,
             "statement": SIMULATION_STATEMENT,
             "visible_watermark": task.watermark_enabled,
+            "jpeg_quality": task.jpeg_quality,
         }
 
     @staticmethod
@@ -129,6 +136,8 @@ class SimulationBackend:
         destination: Path,
         output_format: OutputFormat,
         metadata: dict[str, object],
+        *,
+        jpeg_quality: int,
     ) -> None:
         if output_format is OutputFormat.PNG:
             serialized = json.dumps(metadata, ensure_ascii=False, separators=(",", ":"))
@@ -142,7 +151,12 @@ class SimulationBackend:
         exif = Image.Exif()
         exif[270] = serialized
         exif[305] = "LocalFace Studio"
-        image.convert("RGB").save(destination, format="JPEG", quality=95, exif=exif)
+        image.convert("RGB").save(
+            destination,
+            format="JPEG",
+            quality=jpeg_quality,
+            exif=exif,
+        )
 
     def _inspect(self, task: TaskRecord, target_path: Path) -> None:
         result_path = self._workspaces.result_path(task.task_id, task.output_format)

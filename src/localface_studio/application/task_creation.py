@@ -63,6 +63,7 @@ class TaskCreationService:
         target: AsyncUpload,
         authorization_confirmed: bool,
         output_format: OutputFormat,
+        jpeg_quality: int,
         watermark_enabled: bool,
         retention: RetentionOption,
     ) -> CreatedTask:
@@ -85,6 +86,7 @@ class TaskCreationService:
                 consent_version=CONSENT_VERSION,
                 consented_at=now,
                 output_format=output_format,
+                jpeg_quality=jpeg_quality,
                 watermark_enabled=watermark_enabled,
             )
             images = await self._uploads.save_pair(task.task_id, source, target)

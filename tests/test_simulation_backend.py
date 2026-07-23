@@ -22,7 +22,12 @@ from localface_studio.domain.tasks import (
 from localface_studio.infrastructure.task_workspaces import TaskWorkspaceStore
 
 
-def make_task(output_format: OutputFormat, *, watermark: bool) -> TaskRecord:
+def make_task(
+    output_format: OutputFormat,
+    *,
+    watermark: bool,
+    jpeg_quality: int = 95,
+) -> TaskRecord:
     now = datetime.now(UTC)
     return TaskRecord(
         task_id="simulation-task-identifier-000001",
@@ -35,6 +40,7 @@ def make_task(output_format: OutputFormat, *, watermark: bool) -> TaskRecord:
         consented_at=now,
         output_format=output_format,
         watermark_enabled=watermark,
+        jpeg_quality=jpeg_quality,
     )
 
 
@@ -65,7 +71,12 @@ def test_simulation_exports_disclosed_png_and_jpeg_without_sensitive_metadata(
 ) -> None:
     async def run_case(output_format: OutputFormat, watermark: bool) -> None:
         store = TaskWorkspaceStore(tmp_path / f"{output_format}-{watermark}")
-        task = make_task(output_format, watermark=watermark)
+        jpeg_quality = 73 if output_format is OutputFormat.JPEG else 95
+        task = make_task(
+            output_format,
+            watermark=watermark,
+            jpeg_quality=jpeg_quality,
+        )
         prepare_inputs(store, task)
         nodes: list[WorkflowNode] = []
 
@@ -90,6 +101,7 @@ def test_simulation_exports_disclosed_png_and_jpeg_without_sensitive_metadata(
         assert metadata["backend"] == "simulation"
         assert metadata["statement"] == SIMULATION_STATEMENT
         assert metadata["visible_watermark"] is watermark
+        assert metadata["jpeg_quality"] == jpeg_quality
         assert "private-actor" not in serialized
         assert str(tmp_path) not in serialized
         assert nodes == list(WorkflowNode)
