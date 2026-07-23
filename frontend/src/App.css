@@ -253,8 +253,6 @@
 
 .photo-picker__surface {
   width: 100%;
-  min-height: 220px;
-  max-height: 420px;
   aspect-ratio: var(--preview-ratio, 16 / 9);
   overflow: hidden;
   position: relative;
@@ -282,6 +280,8 @@
 .photo-picker__surface img {
   width: 100%;
   height: 100%;
+  position: absolute;
+  inset: 0;
   display: block;
   object-fit: contain;
   object-position: center;

@@ -2,12 +2,16 @@ import { type CSSProperties, useEffect, useState } from 'react'
 
 const MAXIMUM_IMAGE_BYTES = 25 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
+const MINIMUM_PREVIEW_RATIO = 3 / 4
+const MAXIMUM_PREVIEW_RATIO = 16 / 9
 
 interface PhotoPickerProps {
   detail: string
   file: File | null
   label: string
   onChange: (file: File | null) => void
+  onRatioChange: (ratio: number | null) => void
+  previewRatio: number
 }
 
 function validateImage(file: File): string | null {
@@ -44,13 +48,12 @@ export default function PhotoPicker({
   file,
   label,
   onChange,
+  onRatioChange,
+  previewRatio,
 }: PhotoPickerProps) {
   const [error, setError] = useState<string | null>(null)
-  const [previewRatio, setPreviewRatio] = useState<number | null>(null)
   const previewUrl = usePreviewUrl(file)
-  const previewStyle = previewRatio === null
-    ? undefined
-    : ({ '--preview-ratio': String(previewRatio) } as CSSProperties)
+  const previewStyle = { '--preview-ratio': String(previewRatio) } as CSSProperties
 
   function chooseFile(candidate: File | undefined) {
     if (candidate === undefined) {
@@ -59,7 +62,7 @@ export default function PhotoPicker({
     const validationError = validateImage(candidate)
     setError(validationError)
     if (validationError === null) {
-      setPreviewRatio(null)
+      onRatioChange(null)
       onChange(candidate)
     }
   }
@@ -77,7 +80,7 @@ export default function PhotoPicker({
             type="button"
             onClick={() => {
               setError(null)
-              setPreviewRatio(null)
+              onRatioChange(null)
               onChange(null)
             }}
           >
@@ -102,7 +105,12 @@ export default function PhotoPicker({
             onLoad={(event) => {
               const image = event.currentTarget
               const naturalRatio = image.naturalWidth / image.naturalHeight
-              setPreviewRatio(Math.min(16 / 9, Math.max(3 / 4, naturalRatio)))
+              onRatioChange(
+                Math.min(
+                  MAXIMUM_PREVIEW_RATIO,
+                  Math.max(MINIMUM_PREVIEW_RATIO, naturalRatio),
+                ),
+              )
             }}
           />
         ) : (

@@ -22,6 +22,8 @@ function App() {
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
   const [sourcePhoto, setSourcePhoto] = useState<File | null>(null)
   const [targetPhoto, setTargetPhoto] = useState<File | null>(null)
+  const [sourceRatio, setSourceRatio] = useState<number | null>(null)
+  const [targetRatio, setTargetRatio] = useState<number | null>(null)
   const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false)
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('png')
   const [retention, setRetention] = useState<Retention>('30m')
@@ -65,12 +67,18 @@ function App() {
     targetPhoto !== null &&
     authorizationConfirmed &&
     !submitting
+  const knownRatios = [sourceRatio, targetRatio].filter(
+    (ratio): ratio is number => ratio !== null,
+  )
+  const sharedPreviewRatio = knownRatios.length === 0 ? 16 / 9 : Math.min(...knownRatios)
 
   function changePhoto(role: 'source' | 'target', file: File | null) {
     if (role === 'source') {
       setSourcePhoto(file)
+      setSourceRatio(null)
     } else {
       setTargetPhoto(file)
+      setTargetRatio(null)
     }
     setAuthorizationConfirmed(false)
     setCreatedTask(null)
@@ -172,12 +180,16 @@ function App() {
               detail="提供需要保留的身份特征"
               file={sourcePhoto}
               onChange={(file) => changePhoto('source', file)}
+              onRatioChange={setSourceRatio}
+              previewRatio={sharedPreviewRatio}
             />
             <PhotoPicker
               label="目标场景图"
               detail="提供姿态、背景与待替换人物"
               file={targetPhoto}
               onChange={(file) => changePhoto('target', file)}
+              onRatioChange={setTargetRatio}
+              previewRatio={sharedPreviewRatio}
             />
           </div>
 
