@@ -1,6 +1,8 @@
 """Task creation API tests using generated geometric images only."""
 
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -11,9 +13,33 @@ from PIL import Image
 from localface_studio.api.app import create_app
 from localface_studio.api.security import CSRF_HEADER, MAXIMUM_TASK_REQUEST_BYTES
 from localface_studio.application.task_creation import CONSENT_VERSION
+from localface_studio.application.task_queue import NodeReporter
+from localface_studio.domain.tasks import TaskRecord, TaskStatus, WorkflowNode
 from localface_studio.infrastructure.config import Settings
 
 LOCAL_ORIGIN = "http://127.0.0.1:5173"
+
+
+@asynccontextmanager
+async def running_client(app) -> AsyncIterator[httpx.AsyncClient]:  # type: ignore[no-untyped-def]
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+        ) as client:
+            yield client
+
+
+class BlockingBackend:
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
+
+    async def run(self, task: TaskRecord, report_node: NodeReporter) -> None:
+        for node in WorkflowNode:
+            await report_node(node)
+            if node is WorkflowNode.VALIDATE:
+                await self.release.wait()
 
 
 def png_bytes(*, size: tuple[int, int] = (20, 16)) -> bytes:
@@ -52,11 +78,7 @@ async def establish_session(client: httpx.AsyncClient) -> str:
 def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
+        async with running_client(app) as client:
             csrf = await establish_session(client)
             data, files = task_form(output_format="jpeg", watermark="false", retention="7d")
             response = await client.post(
@@ -83,12 +105,17 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         assert session is not None
         stored = app.state.task_repository.get_for_actor(payload["task_id"], session.actor_id)
         assert stored is not None
+        assert stored.status is TaskStatus.SUCCEEDED
         assert stored.consent_version == CONSENT_VERSION
         assert datetime.fromisoformat(payload["expires_at"]) - stored.created_at == timedelta(
             days=7
         )
         workspace = tmp_path / "runtime" / "tasks" / payload["task_id"]
-        assert {path.name for path in workspace.iterdir()} == {"source.png", "target.png"}
+        assert {path.name for path in workspace.iterdir()} == {
+            "source.png",
+            "target.png",
+            "result.jpg",
+        }
 
     asyncio.run(scenario())
 
@@ -96,11 +123,7 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
 def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
+        async with running_client(app) as client:
             csrf = await establish_session(client)
             denied_data, denied_files = task_form(authorization="false")
             denied = await client.post(
@@ -129,12 +152,12 @@ def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: P
 
 def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
+        backend = BlockingBackend()
+        app = create_app(
+            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            workflow_backend=backend,
+        )
+        async with running_client(app) as client:
             csrf = await establish_session(client)
             responses = []
             for _ in range(4):
@@ -147,6 +170,7 @@ def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> 
                         headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
                     )
                 )
+            backend.release.set()
 
         assert [response.status_code for response in responses] == [201, 201, 201, 429]
         assert responses[-1].json()["code"] == "task_limit_exceeded"
@@ -158,11 +182,7 @@ def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> 
 def test_task_request_requires_bounded_multipart_content_length(tmp_path: Path) -> None:
     async def scenario() -> None:
         app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="http://127.0.0.1",
-        ) as client:
+        async with running_client(app) as client:
             csrf = await establish_session(client)
             common_headers = {"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf}
 

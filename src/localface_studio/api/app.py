@@ -1,6 +1,8 @@
 """FastAPI application factory."""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from time import perf_counter
 from uuid import uuid4
 
@@ -17,7 +19,13 @@ from localface_studio.api.security import (
 )
 from localface_studio.application.sessions import SessionStore
 from localface_studio.application.task_creation import TaskCreationService
+from localface_studio.application.task_queue import (
+    SingleTaskQueue,
+    TaskEventBroker,
+    WorkflowBackend,
+)
 from localface_studio.application.uploads import TaskUploadService
+from localface_studio.backends.simulation import SimulationBackend
 from localface_studio.infrastructure.config import Settings, get_settings
 from localface_studio.infrastructure.image_validation import PillowImageValidator
 from localface_studio.infrastructure.logging import configure_logging, log_event
@@ -25,25 +33,45 @@ from localface_studio.infrastructure.sqlite_tasks import SqliteTaskRepository
 from localface_studio.infrastructure.task_workspaces import TaskWorkspaceStore
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    workflow_backend: WorkflowBackend | None = None,
+) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
     runtime_settings = settings or get_settings()
     logger = configure_logging(runtime_settings.log_level)
+    repository = SqliteTaskRepository(runtime_settings.runtime_directory / "tasks.sqlite3")
+    repository.initialize()
+    workspace_store = TaskWorkspaceStore(runtime_settings.runtime_directory / "tasks")
+    upload_service = TaskUploadService(workspace_store, PillowImageValidator())
+    events = TaskEventBroker()
+    backend = workflow_backend or SimulationBackend(workspace_store)
+    task_queue = SingleTaskQueue(repository, backend, events, workspace_store.remove)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        task_queue.start()
+        try:
+            yield
+        finally:
+            await task_queue.stop()
+
     application = FastAPI(
         title="LocalFace Studio API",
         version=__version__,
         docs_url="/api/docs",
         redoc_url=None,
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
-    repository = SqliteTaskRepository(runtime_settings.runtime_directory / "tasks.sqlite3")
-    repository.initialize()
-    workspace_store = TaskWorkspaceStore(runtime_settings.runtime_directory / "tasks")
-    upload_service = TaskUploadService(workspace_store, PillowImageValidator())
     application.state.settings = runtime_settings
     application.state.sessions = SessionStore()
     application.state.task_repository = repository
     application.state.task_creation = TaskCreationService(repository, upload_service)
+    application.state.task_events = events
+    application.state.task_queue = task_queue
+    application.state.task_workspaces = workspace_store
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(session_router, prefix="/api/v1")
     application.include_router(tasks_router, prefix="/api/v1")
