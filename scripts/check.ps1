@@ -52,6 +52,7 @@ if (-not $SkipFrontend) {
     Invoke-Checked $Npm run check
     Set-Location $Root
     Invoke-Checked $Python scripts\verify_frontend.py
+    Invoke-Checked $Python scripts\run_dev.py --smoke-test
 }
 
 Write-Host "All LocalFace Studio quality gates passed."

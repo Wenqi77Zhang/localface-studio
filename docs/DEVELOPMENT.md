@@ -2,6 +2,24 @@
 
 本文档面向 Windows PowerShell。所有命令均在仓库根目录执行。
 
+## 一键初始化与启动
+
+首次克隆后，在仓库根目录执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+```
+
+脚本使用现有 Python 3.14 和 uv 创建 `.venv`、按 `uv.lock` 同步 Python 依赖；缺少 Node.js 时只从官方地址下载固定版本并校验固定 SHA-256，最后按 `package-lock.json` 安装前端依赖。它不需要管理员权限，也不会下载模型。
+
+环境准备完成后启动应用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
+```
+
+默认浏览器会打开 <http://127.0.0.1:5173>。运行窗口保持打开；使用完毕后按 `Ctrl+C`，脚本会同时停止前后端。缓存完整时可以用 `bootstrap.ps1 -Offline` 验证离线环境重建。
+
 ## 当前基线
 
 - Python：3.14.6
@@ -88,7 +106,7 @@ Node.js 便携包来自官方地址：
 
 <https://nodejs.org/dist/v24.18.0/SHASUMS256.txt>
 
-校验通过后，Node.js 位于项目根目录的 `.tools/node/`。该目录不会提交到 Git；全新设备的自动下载与校验脚本将在阶段 1 的 Windows 启动入口小节补齐。
+校验通过后，Node.js 位于项目根目录的 `.tools/node/`。该目录不会提交到 Git；`scripts/bootstrap.ps1` 会在缺失时自动完成下载与校验。
 
 在当前 PowerShell 会话中启用项目内 Node.js：
 

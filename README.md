@@ -6,6 +6,15 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
+## Windows 快速开始
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
+```
+
+初始化不需要管理员权限，也不会下载人脸模型。启动后仅监听本机回环地址；详细说明见[本地开发指南](docs/DEVELOPMENT.md)。
+
 ## 已冻结的产品方向
 
 - 第一版处理单张照片，并为视频扩展预留接口。

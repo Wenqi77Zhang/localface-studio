@@ -22,6 +22,7 @@ packages = ["src/localface_studio"]
 
 [dependency-groups]
 dev = [
+    "hatchling>=1.31.0",
     "httpx>=0.28.1",
     "mypy>=2.3.0",
     "pytest>=9.1.1",
