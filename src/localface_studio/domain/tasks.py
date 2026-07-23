@@ -73,6 +73,7 @@ _ALLOWED_TRANSITIONS: dict[TaskStatus, frozenset[TaskStatus]] = {
     TaskStatus.EXPIRED: frozenset({TaskStatus.DELETED}),
     TaskStatus.DELETED: frozenset(),
 }
+_NODE_ORDER = {node: index for index, node in enumerate(WorkflowNode)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,5 +142,23 @@ def transition_task(
         updated_at=at,
         current_node=current_node,
         error_code=error_code,
+        version=task.version + 1,
+    )
+
+
+def advance_task_node(task: TaskRecord, node: WorkflowNode, *, at: datetime) -> TaskRecord:
+    """Advance a running task through the versioned workflow without changing status."""
+    if task.status is not TaskStatus.RUNNING:
+        raise InvalidTaskTransition("workflow nodes can only advance while a task is running")
+    if at.tzinfo is None or at.utcoffset() is None:
+        raise ValueError("node update time must be timezone-aware")
+    if at < task.updated_at:
+        raise ValueError("node update time must not precede the last update")
+    if task.current_node is not None and _NODE_ORDER[node] <= _NODE_ORDER[task.current_node]:
+        raise InvalidTaskTransition("workflow nodes must advance in order")
+    return replace(
+        task,
+        current_node=node,
+        updated_at=at,
         version=task.version + 1,
     )
