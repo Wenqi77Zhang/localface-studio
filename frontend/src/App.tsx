@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import { checkHealth, establishSession } from './api'
 
 type ApiState = 'checking' | 'online' | 'offline'
+type SessionState = 'checking' | 'ready' | 'unavailable'
 
 const workflowStages = [
   { number: '01', title: '输入照片', detail: '身份来源图与目标场景图' },
@@ -13,32 +15,31 @@ const workflowStages = [
 
 function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
+  const [sessionState, setSessionState] = useState<SessionState>('checking')
+  const [, setCsrfToken] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
 
-    async function checkApi() {
+    async function initializeLocalApi() {
       try {
-        const response = await fetch('/api/v1/health', {
-          headers: { Accept: 'application/json' },
-          signal: controller.signal,
-        })
-        const payload: unknown = await response.json()
-        const healthy =
-          response.ok &&
-          typeof payload === 'object' &&
-          payload !== null &&
-          'status' in payload &&
-          payload.status === 'ok'
+        const [healthy, csrfToken] = await Promise.all([
+          checkHealth(controller.signal),
+          establishSession(controller.signal),
+        ])
         setApiState(healthy ? 'online' : 'offline')
+        setCsrfToken(csrfToken)
+        setSessionState('ready')
       } catch {
         if (!controller.signal.aborted) {
           setApiState('offline')
+          setCsrfToken(null)
+          setSessionState('unavailable')
         }
       }
     }
 
-    void checkApi()
+    void initializeLocalApi()
     return () => controller.abort()
   }, [])
 
@@ -58,7 +59,12 @@ function App() {
 
         <div className="topbar-status" aria-live="polite">
           <span className={`status-dot status-dot--${apiState}`} />
-          后端{apiLabel}
+          后端{apiLabel} · 会话
+          {sessionState === 'ready'
+            ? '已保护'
+            : sessionState === 'unavailable'
+              ? '不可用'
+              : '建立中'}
         </div>
       </header>
 
