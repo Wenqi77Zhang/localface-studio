@@ -59,6 +59,7 @@
 | Python 开发依赖 | Pytest 9.1.1、Ruff 0.15.22、Mypy 2.3.0、HTTPX 0.28.1、pytest-cov 7.1.0、Hatchling 1.31.0 | 仅用于测试、构建和质量门禁；发布前仍由完整许可证报告确认其锁定版本声明。 |
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
 | Python 图片与上传依赖 | Pillow 12.3.0（MIT-CMU）、python-multipart 0.0.32（Apache-2.0） | 绿色；仅用于本地图片解码校验与 multipart 上传解析，发布时保留许可证文本。 |
+| Python 人脸检测候选依赖 | opencv-python-headless 5.0.0.93（Apache-2.0）、NumPy 2.5.1（BSD-3-Clause） | 绿色；已在 Python 3.14.6、Windows 环境完成导入、模型加载和无脸图 CPU 推理检查。 |
 | Python 元数据缺失项 | annotated-types 0.7.0、colorama 0.4.6 的已安装元数据未提供标准许可证表达式 | 待人工复核；不得因为元数据为空而推断为无许可证或自动归类为 MIT。 |
 | 前端直接运行依赖 | React 19.2.8、React DOM 19.2.8（MIT） | 绿色。 |
 | 前端直接开发依赖 | TypeScript 6.0.3（Apache-2.0）、Vite 8.1.5、OxcLint 1.75.0、React 插件与类型包（MIT） | 绿色；仅用于构建和检查。 |
@@ -71,7 +72,7 @@
 
 | 资产 | 预期用途 | 当前许可判断 | 标签 | 允许的第一版用法 |
 |---|---|---|---|---|
-| OpenCV Zoo `face_detection_yunet_2026may.onnx` | 默认人脸检测、五点关键点 | YuNet 目录声明全部文件采用 MIT；下载前仍登记来源、大小和哈希 | 绿色候选 | 完成本机兼容性和检测验收后可作为默认检测权重。 |
+| OpenCV Zoo `face_detection_yunet_2026may.onnx` | 默认人脸检测、五点关键点 | YuNet 目录声明全部文件采用 MIT；已验证大小 229738 字节，SHA-256 `ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0` | 绿色候选 | 已通过本机加载和无脸图 CPU 推理检查；完成人脸困难场景验收后可作为默认检测权重。 |
 | InsightFace 官方 SCRFD 权重 | 高精度检测对比 | 官方预训练模型仅限非商业研究 | 红色 | 仅本地个人学习和非商业对比；首次启用前确认，不提交、不分发。 |
 | 未来自训练 `scrfd-custom` | 商业兼容检测候选 | 取决于训练数据、训练代码、基础权重和最终模型的完整权利链 | 待核验 | 完成模型卡、数据许可、训练记录、哈希和人工复核前不得标记为商业兼容。 |
 | `inswapper_128.onnx` 或同系列官方换脸权重 | 身份替换 | 官方要求商用联系授权；开放权重不等同于免费商用 | 红色 | 仅个人学习和非商业演示；不提交、不镜像、不随安装包分发。 |

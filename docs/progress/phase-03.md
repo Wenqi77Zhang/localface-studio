@@ -17,17 +17,18 @@
 - 已比较 YuNet、SCRFD、RetinaFace 和 MediaPipe/BlazeFace 的工程适用性。
 - 已确认检测模型与换脸模型的职责边界。
 - 已冻结可替换检测器和许可证隔离架构，见 `docs/architecture/ADR-003-face-detector-profiles.md`。
+- 已在 Python 3.14.6 中验证 opencv-python-headless 5.0.0.93、NumPy 2.5.1 和 `FaceDetectorYN` 可用。
+- 已从 OpenCV 官方仓库取得 `face_detection_yunet_2026may.onnx`，验证大小为 229738 字节，SHA-256 为 `ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0`。
+- 已完成模型加载及程序生成无脸图的 CPU 推理检查，正确返回零张人脸。
+- 已建立可提交的 `config/models.json`；权重文件仍位于 Git 忽略目录。
 
 ## 下一小步
 
-1. 登记 YuNet 候选文件、官方来源、许可证、预期大小和 SHA-256。
-2. 在 Python 3.14 环境验证 OpenCV 与 YuNet 加载。
-3. 使用不含个人或未授权人脸的许可测试素材验证单脸、多脸、无脸、小脸、遮挡和旋转行为。
-4. 验证通过后再实现统一 `FaceDetector` 契约和前端检测流程。
+1. 使用不含个人或未授权人脸的许可测试素材验证单脸、多脸、无脸、小脸、遮挡和旋转行为。
+2. 验证通过后再实现统一 `FaceDetector` 契约和前端检测流程。
 
 ## 尚未执行
 
-- 未安装 OpenCV 或 InsightFace。
-- 未下载任何模型权重。
+- 未安装 InsightFace 或下载官方 SCRFD 研究权重。
 - 未修改高级设置界面。
 - 未把 YuNet 正式判定为已通过验收的默认实现。

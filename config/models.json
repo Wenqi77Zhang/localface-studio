@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "yunet-opencv",
+      "role": "face_detector",
+      "version": "2026may",
+      "filename": "face_detection_yunet_2026may.onnx",
+      "relative_path": "models/detectors/yunet/face_detection_yunet_2026may.onnx",
+      "source_url": "https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_detection_yunet/face_detection_yunet_2026may.onnx",
+      "source_repository": "https://github.com/opencv/opencv_zoo",
+      "license": "MIT",
+      "license_url": "https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/LICENSE",
+      "sha256": "ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0",
+      "size_bytes": 229738,
+      "distribution": "download-separately",
+      "commercial_mode_allowed": true,
+      "runtime": {
+        "adapter": "opencv-facedetectoryn",
+        "package": "opencv-python-headless",
+        "verified_package_version": "5.0.0.93",
+        "verified_python_version": "3.14.6",
+        "initial_device": "cpu"
+      }
+    }
+  ]
+}
