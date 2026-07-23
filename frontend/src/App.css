@@ -520,6 +520,12 @@
   text-align: right;
 }
 
+.task-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .workflow-footer button {
   min-width: 112px;
   padding: 10px 16px;
@@ -529,6 +535,17 @@
   background: var(--accent);
   font: 600 12px/1 var(--sans);
   cursor: pointer;
+}
+
+.workflow-footer .cancel-task-button {
+  border: 1px solid rgba(235, 112, 112, 0.52);
+  color: #f2a3a3;
+  background: rgba(167, 47, 47, 0.1);
+}
+
+.workflow-footer .cancel-task-button:hover:not(:disabled) {
+  border-color: rgba(235, 112, 112, 0.78);
+  background: rgba(167, 47, 47, 0.18);
 }
 
 .workflow-footer .submit-button--incomplete {
@@ -601,6 +618,14 @@
 
   .submit-guidance {
     text-align: left;
+  }
+
+  .task-action-buttons {
+    justify-content: stretch;
+  }
+
+  .task-action-buttons button {
+    flex: 1;
   }
 
   .workflow-canvas { padding: 24px 14px; }

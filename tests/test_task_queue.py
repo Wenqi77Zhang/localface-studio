@@ -162,6 +162,7 @@ def test_running_and_queued_tasks_can_be_cancelled(tmp_path: Path) -> None:
         await backend.started.wait()
 
         cancellation_requested = await queue.cancel(running_task.task_id, running_task.actor_id)
+        backend.release.set()
         queued_cancelled = await queue.cancel(queued_task.task_id, queued_task.actor_id)
         await queue.stop()
 

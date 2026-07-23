@@ -1,6 +1,7 @@
 """Single-concurrency task execution, cancellation, timeout, and event history."""
 
 import asyncio
+import logging
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
@@ -17,6 +18,7 @@ from localface_studio.domain.tasks import (
     advance_task_node,
     transition_task,
 )
+from localface_studio.infrastructure.logging import log_event
 
 TERMINAL_STATUSES = frozenset(
     {
@@ -28,6 +30,8 @@ TERMINAL_STATUSES = frozenset(
         TaskStatus.DELETED,
     }
 )
+_CLEANUP_ATTEMPTS = 5
+_CLEANUP_RETRY_SECONDS = 0.1
 
 
 class WorkflowExecutionError(RuntimeError):
@@ -182,6 +186,13 @@ class SingleTaskQueue:
         while (item := await self._items.get()) is not None:
             try:
                 await self._execute(item)
+            except Exception as error:
+                log_event(
+                    logging.getLogger("localface"),
+                    logging.ERROR,
+                    "task_worker_item_failed",
+                    error_type=type(error).__name__,
+                )
             finally:
                 self._items.task_done()
         self._items.task_done()
@@ -244,6 +255,16 @@ class SingleTaskQueue:
             error_code=error_code,
         )
         self._repository.save(finished, expected_version=current.version)
-        if final_status is not TaskStatus.SUCCEEDED:
-            self._cleanup(item.task_id)
         self._events.publish(finished)
+        if final_status is not TaskStatus.SUCCEEDED:
+            await self._cleanup_with_retry(item.task_id)
+
+    async def _cleanup_with_retry(self, task_id: str) -> None:
+        for attempt in range(_CLEANUP_ATTEMPTS):
+            try:
+                self._cleanup(task_id)
+                return
+            except OSError:
+                if attempt == _CLEANUP_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(_CLEANUP_RETRY_SECONDS * (attempt + 1))

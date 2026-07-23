@@ -3,7 +3,8 @@
 import asyncio
 import json
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -41,16 +42,28 @@ class SimulationBackend:
         await report_node(WorkflowNode.PREPARE)
         await report_node(WorkflowNode.SIMULATE)
         try:
-            await asyncio.to_thread(self._render, task, source_path, target_path)
+            await self._run_thread_safely(self._render, task, source_path, target_path)
         except (OSError, ValueError, UnidentifiedImageError) as error:
             raise WorkflowExecutionError("simulation_render_failed") from error
 
         await report_node(WorkflowNode.INSPECT)
         try:
-            await asyncio.to_thread(self._inspect, task, target_path)
+            await self._run_thread_safely(self._inspect, task, target_path)
         except (OSError, ValueError, UnidentifiedImageError) as error:
             raise WorkflowExecutionError("simulation_output_invalid") from error
         await report_node(WorkflowNode.EXPORT)
+
+    @staticmethod
+    async def _run_thread_safely(function: Callable[..., None], *args: object) -> None:
+        worker = asyncio.create_task(asyncio.to_thread(function, *args))
+        try:
+            await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            # asyncio cannot stop a thread that already holds image files. Wait for
+            # that thread to release its handles before task cleanup removes them.
+            with suppress(Exception):
+                await worker
+            raise
 
     def _render(self, task: TaskRecord, source_path: Path, target_path: Path) -> None:
         # Opening the source confirms the complete pair is still readable. Its pixels

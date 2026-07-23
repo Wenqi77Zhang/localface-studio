@@ -2,9 +2,11 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import './App.css'
 import PhotoPicker from './PhotoPicker'
 import {
+  cancelTask,
   checkHealth,
   createTask,
   establishSession,
+  getTask,
   parseTaskEvent,
   taskEventsUrl,
   type CreatedTask,
@@ -35,6 +37,7 @@ const terminalStatuses = new Set([
   'deleted',
 ])
 const COMPLETED_TASK_RESET_DELAY_MS = 3_000
+const TASK_STATUS_POLL_INTERVAL_MS = 500
 type NodeVisualState = 'pending' | 'active' | 'complete' | 'stopped'
 const nodeStateLabels: Record<NodeVisualState, string> = {
   pending: '等待',
@@ -79,6 +82,7 @@ function App() {
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [createdTask, setCreatedTask] = useState<CreatedTask | null>(null)
   const [taskEvent, setTaskEvent] = useState<TaskEvent | null>(null)
@@ -124,16 +128,19 @@ function App() {
         )
         setEventError(null)
         if (terminalStatuses.has(nextEvent.status)) {
+          setCancelling(false)
           events.close()
         }
       } catch (error) {
         setEventError(error instanceof Error ? error.message : '无法读取任务进度。')
+        setCancelling(false)
         events.close()
       }
     }
     events.addEventListener('task', receiveTaskEvent)
     events.onerror = () => {
       setEventError('实时进度连接中断。')
+      setCancelling(false)
       events.close()
     }
     return () => {
@@ -176,6 +183,42 @@ function App() {
       : 'incomplete'
 
   useEffect(() => {
+    if (createdTask === null || !taskInProgress) {
+      return
+    }
+    let stopped = false
+    const refreshTask = async () => {
+      try {
+        const snapshot = await getTask(createdTask.taskId)
+        if (stopped) {
+          return
+        }
+        setTaskEvent((current) =>
+          current === null || snapshot.version >= current.version ? snapshot : current,
+        )
+        setEventError(null)
+        if (terminalStatuses.has(snapshot.status)) {
+          setCancelling(false)
+        }
+      } catch {
+        if (!stopped) {
+          setCancelling(false)
+          setEventError('无法同步任务状态，请检查本地后端连接。')
+        }
+      }
+    }
+    void refreshTask()
+    const interval = window.setInterval(
+      () => void refreshTask(),
+      TASK_STATUS_POLL_INTERVAL_MS,
+    )
+    return () => {
+      stopped = true
+      window.clearInterval(interval)
+    }
+  }, [createdTask, taskInProgress])
+
+  useEffect(() => {
     if (createdTask === null || taskInProgress || authorizationConfirmed) {
       return
     }
@@ -201,6 +244,7 @@ function App() {
     setTaskEvent(null)
     setEventError(null)
     setSubmitError(null)
+    setCancelling(false)
   }
 
   async function submitTask(event: FormEvent<HTMLFormElement>) {
@@ -259,6 +303,34 @@ function App() {
       setSubmitError(null)
     }
     setAuthorizationConfirmed(checked)
+  }
+
+  async function requestCancellation() {
+    if (
+      cancelling ||
+      !taskInProgress ||
+      createdTask === null ||
+      csrfToken === null
+    ) {
+      return
+    }
+    setCancelling(true)
+    setSubmitError(null)
+    setEventError(null)
+    try {
+      const cancellation = await cancelTask(createdTask.taskId, csrfToken)
+      setTaskEvent((current) =>
+        current === null || cancellation.version >= current.version
+          ? cancellation
+          : current,
+      )
+      if (terminalStatuses.has(cancellation.status)) {
+        setCancelling(false)
+      }
+    } catch (error) {
+      setCancelling(false)
+      setSubmitError(error instanceof Error ? error.message : '无法取消当前任务。')
+    }
   }
 
   return (
@@ -436,17 +508,29 @@ function App() {
                   {validationMessage}
                 </span>
               )}
-              <button
-                className={`submit-button--${submitButtonState}`}
-                type="submit"
-                disabled={submitting || taskInProgress}
-              >
-                {submitting
-                  ? '正在提交…'
-                  : taskInProgress
-                    ? '任务处理中'
-                    : '开始模拟处理'}
-              </button>
+              <div className="task-action-buttons">
+                {taskInProgress && (
+                  <button
+                    className="cancel-task-button"
+                    type="button"
+                    disabled={cancelling}
+                    onClick={() => void requestCancellation()}
+                  >
+                    {cancelling ? '正在等待任务停止…' : '取消当前任务'}
+                  </button>
+                )}
+                <button
+                  className={`submit-button--${submitButtonState}`}
+                  type="submit"
+                  disabled={submitting || taskInProgress}
+                >
+                  {submitting
+                    ? '正在提交…'
+                    : taskInProgress
+                      ? '任务处理中'
+                      : '开始模拟处理'}
+                </button>
+              </div>
             </div>
           </footer>
         </form>

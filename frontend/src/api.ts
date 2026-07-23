@@ -142,6 +142,10 @@ export function parseTaskEvent(serialized: string): TaskEvent {
   } catch {
     throw new Error('任务事件不是有效的 JSON。')
   }
+  return parseTaskState(payload, '任务事件结构无效。')
+}
+
+function parseTaskState(payload: unknown, invalidMessage: string): TaskEvent {
   if (
     !isObject(payload) ||
     typeof payload.task_id !== 'string' ||
@@ -155,7 +159,7 @@ export function parseTaskEvent(serialized: string): TaskEvent {
     ) ||
     !(payload.error_code === null || typeof payload.error_code === 'string')
   ) {
-    throw new Error('任务事件结构无效。')
+    throw new Error(invalidMessage)
   }
   return {
     taskId: payload.task_id,
@@ -164,6 +168,48 @@ export function parseTaskEvent(serialized: string): TaskEvent {
     currentNode: payload.current_node as WorkflowNode | null,
     errorCode: payload.error_code,
   }
+}
+
+export async function cancelTask(
+  taskId: string,
+  csrfToken: string,
+): Promise<TaskEvent> {
+  const response = await fetch(
+    `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/cancel`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        [CSRF_HEADER]: csrfToken,
+      },
+    },
+  )
+  const payload = await readJson(response)
+  if (!response.ok) {
+    const detail =
+      isObject(payload) && typeof payload.detail === 'string'
+        ? payload.detail
+        : '无法取消当前任务。'
+    throw new Error(detail)
+  }
+  return parseTaskState(payload, '后端返回了无效的取消状态。')
+}
+
+export async function getTask(taskId: string): Promise<TaskEvent> {
+  const response = await fetch(`${API_ROOT}/tasks/${encodeURIComponent(taskId)}`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+  })
+  const payload = await readJson(response)
+  if (!response.ok) {
+    const detail =
+      isObject(payload) && typeof payload.detail === 'string'
+        ? payload.detail
+        : '无法确认任务状态。'
+    throw new Error(detail)
+  }
+  return parseTaskState(payload, '后端返回了无效的任务状态。')
 }
 
 export function taskEventsUrl(taskId: string): string {
