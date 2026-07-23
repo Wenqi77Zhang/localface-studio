@@ -36,3 +36,7 @@ class TaskRepository(Protocol):
     def list_due_for_expiry(self, at: datetime) -> list[TaskRecord]:
         """Return successful results whose retention deadline has passed."""
         ...
+
+    def list_all(self) -> list[TaskRecord]:
+        """Return minimal task records for process-restart recovery."""
+        ...

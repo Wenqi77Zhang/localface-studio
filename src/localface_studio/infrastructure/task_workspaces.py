@@ -66,6 +66,16 @@ class TaskWorkspaceStore:
         """Return a fixed temporary result path used for atomic publication."""
         return self._workspace(task_id) / "result.part"
 
+    def list_task_ids(self) -> tuple[str, ...]:
+        """List only canonical task directories owned by this storage component."""
+        return tuple(
+            sorted(
+                path.name
+                for path in self._root.iterdir()
+                if path.is_dir() and _TASK_ID.fullmatch(path.name) is not None
+            )
+        )
+
     def _workspace(self, task_id: str) -> Path:
         if _TASK_ID.fullmatch(task_id) is None:
             raise ValueError("invalid task identifier")

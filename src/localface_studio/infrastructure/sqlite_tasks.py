@@ -141,6 +141,12 @@ class SqliteTaskRepository:
             ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_all(self) -> list[TaskRecord]:
+        """List minimal records in stable order for startup recovery."""
+        with self._connection() as connection:
+            rows = connection.execute("SELECT * FROM tasks ORDER BY created_at, task_id").fetchall()
+        return [self._from_row(row) for row in rows]
+
     def _connect(self) -> Connection:
         connection = sqlite3.connect(self._database_path, timeout=5)
         connection.row_factory = Row

@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,6 +19,7 @@ from localface_studio.api.security import (
     reject_untrusted_source,
 )
 from localface_studio.application.sessions import SessionStore
+from localface_studio.application.task_cleanup import TaskCleanupService
 from localface_studio.application.task_creation import TaskCreationService
 from localface_studio.application.task_queue import (
     SingleTaskQueue,
@@ -48,13 +50,22 @@ def create_app(
     events = TaskEventBroker()
     backend = workflow_backend or SimulationBackend(workspace_store)
     task_queue = SingleTaskQueue(repository, backend, events, workspace_store.remove)
+    cleanup = TaskCleanupService(repository, workspace_store)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        cleanup.recover_startup()
         task_queue.start()
+        cleanup_stop = asyncio.Event()
+        cleanup_worker = asyncio.create_task(
+            cleanup.run_periodically(cleanup_stop),
+            name="localface-cleanup-worker",
+        )
         try:
             yield
         finally:
+            cleanup_stop.set()
+            await cleanup_worker
             await task_queue.stop()
 
     application = FastAPI(
@@ -71,6 +82,7 @@ def create_app(
     application.state.task_creation = TaskCreationService(repository, upload_service)
     application.state.task_events = events
     application.state.task_queue = task_queue
+    application.state.task_cleanup = cleanup
     application.state.task_workspaces = workspace_store
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(session_router, prefix="/api/v1")
