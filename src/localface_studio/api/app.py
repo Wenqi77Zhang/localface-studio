@@ -9,10 +9,20 @@ from fastapi import FastAPI, Request
 from localface_studio import __version__
 from localface_studio.api.routes.health import router as health_router
 from localface_studio.api.routes.session import router as session_router
-from localface_studio.api.security import reject_invalid_csrf, reject_untrusted_source
+from localface_studio.api.routes.tasks import router as tasks_router
+from localface_studio.api.security import (
+    reject_invalid_csrf,
+    reject_invalid_task_upload_request,
+    reject_untrusted_source,
+)
 from localface_studio.application.sessions import SessionStore
+from localface_studio.application.task_creation import TaskCreationService
+from localface_studio.application.uploads import TaskUploadService
 from localface_studio.infrastructure.config import Settings, get_settings
+from localface_studio.infrastructure.image_validation import PillowImageValidator
 from localface_studio.infrastructure.logging import configure_logging, log_event
+from localface_studio.infrastructure.sqlite_tasks import SqliteTaskRepository
+from localface_studio.infrastructure.task_workspaces import TaskWorkspaceStore
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -26,15 +36,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
+    repository = SqliteTaskRepository(runtime_settings.runtime_directory / "tasks.sqlite3")
+    repository.initialize()
+    workspace_store = TaskWorkspaceStore(runtime_settings.runtime_directory / "tasks")
+    upload_service = TaskUploadService(workspace_store, PillowImageValidator())
     application.state.settings = runtime_settings
     application.state.sessions = SessionStore()
+    application.state.task_repository = repository
+    application.state.task_creation = TaskCreationService(repository, upload_service)
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(session_router, prefix="/api/v1")
+    application.include_router(tasks_router, prefix="/api/v1")
 
     @application.middleware("http")
     async def local_request_security(request: Request, call_next):  # type: ignore[no-untyped-def]
         """Apply source validation before session and CSRF validation."""
         rejection = reject_untrusted_source(request, runtime_settings)
+        if rejection is None:
+            rejection = reject_invalid_task_upload_request(request)
         if rejection is None:
             rejection = reject_invalid_csrf(request, application.state.sessions)
         if rejection is not None:

@@ -20,8 +20,15 @@ CHUNK_SIZE = 64 * 1024
 class AsyncUpload(Protocol):
     """Small structural contract implemented by FastAPI's UploadFile."""
 
-    filename: str | None
-    content_type: str | None
+    @property
+    def filename(self) -> str | None:
+        """Untrusted display name used only for suffix validation."""
+        ...
+
+    @property
+    def content_type(self) -> str | None:
+        """Untrusted declared media type checked against decoded content."""
+        ...
 
     def read(self, size: int = -1) -> Awaitable[bytes]:
         """Read at most size bytes from the spooled upload."""
@@ -98,6 +105,10 @@ class TaskUploadService:
                 self._workspace_store.remove(task_id)
             raise
         return UploadedImagePair(task_id=task_id, source=source_image, target=target_image)
+
+    def discard(self, task_id: str) -> None:
+        """Remove a task workspace when a later database operation fails."""
+        self._workspace_store.remove(task_id)
 
     async def _save_one(
         self,

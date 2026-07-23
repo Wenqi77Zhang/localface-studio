@@ -1,7 +1,7 @@
 """Task contracts and state-transition rules independent of API and storage."""
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from secrets import token_urlsafe
 
@@ -34,6 +34,22 @@ class OutputFormat(StrEnum):
 
     PNG = "png"
     JPEG = "jpeg"
+
+
+class RetentionOption(StrEnum):
+    """User-selectable result retention periods with a seven-day hard maximum."""
+
+    THIRTY_MINUTES = "30m"
+    ONE_DAY = "24h"
+    SEVEN_DAYS = "7d"
+
+    @property
+    def duration(self) -> timedelta:
+        return {
+            RetentionOption.THIRTY_MINUTES: timedelta(minutes=30),
+            RetentionOption.ONE_DAY: timedelta(days=1),
+            RetentionOption.SEVEN_DAYS: timedelta(days=7),
+        }[self]
 
 
 class InvalidTaskTransition(ValueError):
