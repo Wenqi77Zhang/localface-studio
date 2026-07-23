@@ -631,11 +631,15 @@ function App() {
             </div>
           </footer>
           </form>
-          {createdTask !== null && latestTaskStatus === 'succeeded' && (
+          {createdTask !== null &&
+            latestTaskStatus === 'succeeded' &&
+            targetPhoto !== null && (
             <ResultPreview
               error={resultError}
               loading={resultLoading}
+              originalFile={targetPhoto}
               outputFormat={createdTask.outputFormat}
+              previewRatio={targetRatio ?? 16 / 9}
               previewUrl={resultPreviewUrl}
             />
           )}
