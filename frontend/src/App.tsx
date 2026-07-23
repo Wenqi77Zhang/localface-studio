@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import PhotoPicker from './PhotoPicker'
 import { checkHealth, establishSession } from './api'
 
 type ApiState = 'checking' | 'online' | 'offline'
@@ -17,6 +18,8 @@ function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
   const [sessionState, setSessionState] = useState<SessionState>('checking')
   const [, setCsrfToken] = useState<string | null>(null)
+  const [sourcePhoto, setSourcePhoto] = useState<File | null>(null)
+  const [targetPhoto, setTargetPhoto] = useState<File | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -70,7 +73,7 @@ function App() {
 
       <main className="workspace">
         <aside className="project-panel" aria-label="项目说明">
-          <span className="eyebrow">阶段 1 · 工程骨架</span>
+          <span className="eyebrow">阶段 2 · 本地产品闭环</span>
           <h1>精准换脸，<br />数据留在本机。</h1>
           <p className="lead">
             先建立可审查的工作流边界，再逐步接入检测、选择、换脸与导出能力。
@@ -80,7 +83,7 @@ function App() {
             <span className="privacy-icon" aria-hidden="true">⌂</span>
             <div>
               <strong>隐私优先模式</strong>
-              <p>服务仅监听 127.0.0.1，当前不上传任何图片。</p>
+              <p>服务仅监听 127.0.0.1；选择后的预览不会离开本机浏览器。</p>
             </div>
           </div>
 
@@ -97,7 +100,22 @@ function App() {
               <span className="eyebrow">Workflow preview</span>
               <h2 id="workflow-title">单张照片处理流程</h2>
             </div>
-            <span className="draft-badge">架构预览</span>
+            <span className="draft-badge">本地模拟模式</span>
+          </div>
+
+          <div className="photo-grid" aria-label="图片输入">
+            <PhotoPicker
+              label="身份来源图"
+              detail="提供需要保留的身份特征"
+              file={sourcePhoto}
+              onChange={setSourcePhoto}
+            />
+            <PhotoPicker
+              label="目标场景图"
+              detail="提供姿态、背景与待替换人物"
+              file={targetPhoto}
+              onChange={setTargetPhoto}
+            />
           </div>
 
           <div className="workflow-canvas">
@@ -122,7 +140,11 @@ function App() {
           </div>
 
           <footer className="workflow-footer">
-            <p>当前仅验证前后端工程链路，不包含模型推理能力。</p>
+            <p>
+              {sourcePhoto && targetPhoto
+                ? '两张图片已就绪；下一步将加入逐次授权与处理参数。'
+                : '请先选择身份来源图和目标场景图。'}
+            </p>
             <button type="button" disabled title="将在模型阶段启用">
               开始处理
             </button>
