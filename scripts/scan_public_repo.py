@@ -70,7 +70,16 @@ def main() -> None:
 def tracked_files() -> list[Path]:
     """Return public candidates without inspecting ignored private data."""
     completed = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        [
+            "git",
+            "-c",
+            f"safe.directory={ROOT.as_posix()}",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,

@@ -12,6 +12,7 @@ $Mypy = Join-Path $Root ".venv\Scripts\mypy.exe"
 $Pytest = Join-Path $Root ".venv\Scripts\pytest.exe"
 $NodeDir = Join-Path $Root ".tools\node"
 $Npm = Join-Path $NodeDir "npm.cmd"
+$SafeRoot = $Root.Replace("\", "/")
 
 function Invoke-Checked {
     param(
@@ -33,8 +34,14 @@ Invoke-Checked $Mypy src scripts tests
 Invoke-Checked $Pytest -q --cov --cov-report=term-missing
 Invoke-Checked $Python scripts\scan_public_repo.py
 Invoke-Checked $Python scripts\verify_backend.py
-Invoke-Checked git diff --check
-Invoke-Checked git diff --cached --check
+& git -c "safe.directory=$SafeRoot" diff --check
+if ($LASTEXITCODE -ne 0) {
+    throw "Unstaged Git whitespace check failed."
+}
+& git -c "safe.directory=$SafeRoot" diff --cached --check
+if ($LASTEXITCODE -ne 0) {
+    throw "Staged Git whitespace check failed."
+}
 
 if (-not $SkipFrontend) {
     if (-not (Test-Path $Npm)) {
