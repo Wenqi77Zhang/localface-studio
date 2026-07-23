@@ -252,14 +252,17 @@
 }
 
 .photo-picker__surface {
-  height: 168px;
+  width: 100%;
+  min-height: 220px;
+  max-height: 420px;
+  aspect-ratio: var(--preview-ratio, 16 / 9);
   overflow: hidden;
   position: relative;
   display: grid;
   place-items: center;
   border: 1px dashed var(--border-strong);
   border-radius: 14px;
-  background: #0a0e13;
+  background: #030507;
   cursor: pointer;
 }
 
@@ -281,6 +284,8 @@
   height: 100%;
   display: block;
   object-fit: contain;
+  object-position: center;
+  background: #000;
 }
 
 .photo-picker__surface span {

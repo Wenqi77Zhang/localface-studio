@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 
 const MAXIMUM_IMAGE_BYTES = 25 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
@@ -46,7 +46,11 @@ export default function PhotoPicker({
   onChange,
 }: PhotoPickerProps) {
   const [error, setError] = useState<string | null>(null)
+  const [previewRatio, setPreviewRatio] = useState<number | null>(null)
   const previewUrl = usePreviewUrl(file)
+  const previewStyle = previewRatio === null
+    ? undefined
+    : ({ '--preview-ratio': String(previewRatio) } as CSSProperties)
 
   function chooseFile(candidate: File | undefined) {
     if (candidate === undefined) {
@@ -55,6 +59,7 @@ export default function PhotoPicker({
     const validationError = validateImage(candidate)
     setError(validationError)
     if (validationError === null) {
+      setPreviewRatio(null)
       onChange(candidate)
     }
   }
@@ -72,6 +77,7 @@ export default function PhotoPicker({
             type="button"
             onClick={() => {
               setError(null)
+              setPreviewRatio(null)
               onChange(null)
             }}
           >
@@ -80,7 +86,7 @@ export default function PhotoPicker({
         )}
       </div>
 
-      <label className="photo-picker__surface">
+      <label className="photo-picker__surface" style={previewStyle}>
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -90,7 +96,15 @@ export default function PhotoPicker({
           }}
         />
         {previewUrl ? (
-          <img src={previewUrl} alt={`${label}本地预览`} />
+          <img
+            src={previewUrl}
+            alt={`${label}本地预览`}
+            onLoad={(event) => {
+              const image = event.currentTarget
+              const naturalRatio = image.naturalWidth / image.naturalHeight
+              setPreviewRatio(Math.min(16 / 9, Math.max(3 / 4, naturalRatio)))
+            }}
+          />
         ) : (
           <span>
             <b>选择图片</b>
