@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import './App.css'
 import PhotoPicker from './PhotoPicker'
-import { checkHealth, establishSession } from './api'
+import { checkHealth, createTask, establishSession, type CreatedTask } from './api'
 
 type ApiState = 'checking' | 'online' | 'offline'
 type SessionState = 'checking' | 'ready' | 'unavailable'
+type OutputFormat = 'png' | 'jpeg'
+type Retention = '30m' | '24h' | '7d'
 
 const workflowStages = [
   { number: '01', title: '输入照片', detail: '身份来源图与目标场景图' },
@@ -17,21 +19,29 @@ const workflowStages = [
 function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
   const [sessionState, setSessionState] = useState<SessionState>('checking')
-  const [, setCsrfToken] = useState<string | null>(null)
+  const [csrfToken, setCsrfToken] = useState<string | null>(null)
   const [sourcePhoto, setSourcePhoto] = useState<File | null>(null)
   const [targetPhoto, setTargetPhoto] = useState<File | null>(null)
+  const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false)
+  const [outputFormat, setOutputFormat] = useState<OutputFormat>('png')
+  const [retention, setRetention] = useState<Retention>('30m')
+  const [watermarkEnabled, setWatermarkEnabled] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [createdTask, setCreatedTask] = useState<CreatedTask | null>(null)
+  const submitLock = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
 
     async function initializeLocalApi() {
       try {
-        const [healthy, csrfToken] = await Promise.all([
+        const [healthy, csrf] = await Promise.all([
           checkHealth(controller.signal),
           establishSession(controller.signal),
         ])
         setApiState(healthy ? 'online' : 'offline')
-        setCsrfToken(csrfToken)
+        setCsrfToken(csrf)
         setSessionState('ready')
       } catch {
         if (!controller.signal.aborted) {
@@ -48,6 +58,59 @@ function App() {
 
   const apiLabel =
     apiState === 'online' ? '在线' : apiState === 'offline' ? '未连接' : '检查中'
+  const canSubmit =
+    apiState === 'online' &&
+    csrfToken !== null &&
+    sourcePhoto !== null &&
+    targetPhoto !== null &&
+    authorizationConfirmed &&
+    !submitting
+
+  function changePhoto(role: 'source' | 'target', file: File | null) {
+    if (role === 'source') {
+      setSourcePhoto(file)
+    } else {
+      setTargetPhoto(file)
+    }
+    setAuthorizationConfirmed(false)
+    setCreatedTask(null)
+    setSubmitError(null)
+  }
+
+  async function submitTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (
+      submitLock.current ||
+      !canSubmit ||
+      csrfToken === null ||
+      sourcePhoto === null ||
+      targetPhoto === null
+    ) {
+      return
+    }
+    submitLock.current = true
+    setSubmitting(true)
+    setSubmitError(null)
+    setCreatedTask(null)
+    try {
+      const task = await createTask({
+        authorizationConfirmed,
+        csrfToken,
+        outputFormat,
+        retention,
+        source: sourcePhoto,
+        target: targetPhoto,
+        watermarkEnabled,
+      })
+      setCreatedTask(task)
+      setAuthorizationConfirmed(false)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '任务提交失败。')
+    } finally {
+      submitLock.current = false
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -94,7 +157,7 @@ function App() {
           </dl>
         </aside>
 
-        <section className="workflow-panel" aria-labelledby="workflow-title">
+        <form className="workflow-panel" aria-labelledby="workflow-title" onSubmit={submitTask}>
           <div className="workflow-heading">
             <div>
               <span className="eyebrow">Workflow preview</span>
@@ -108,15 +171,58 @@ function App() {
               label="身份来源图"
               detail="提供需要保留的身份特征"
               file={sourcePhoto}
-              onChange={setSourcePhoto}
+              onChange={(file) => changePhoto('source', file)}
             />
             <PhotoPicker
               label="目标场景图"
               detail="提供姿态、背景与待替换人物"
               file={targetPhoto}
-              onChange={setTargetPhoto}
+              onChange={(file) => changePhoto('target', file)}
             />
           </div>
+
+          <section className="task-options" aria-label="处理设置">
+            <label>
+              <span>输出格式</span>
+              <select
+                value={outputFormat}
+                onChange={(event) => setOutputFormat(event.currentTarget.value as OutputFormat)}
+              >
+                <option value="png">PNG（推荐）</option>
+                <option value="jpeg">JPEG</option>
+              </select>
+            </label>
+            <label>
+              <span>本地保留</span>
+              <select
+                value={retention}
+                onChange={(event) => setRetention(event.currentTarget.value as Retention)}
+              >
+                <option value="30m">30 分钟（推荐）</option>
+                <option value="24h">24 小时</option>
+                <option value="7d">7 天（上限）</option>
+              </select>
+            </label>
+            <label className="checkbox-option">
+              <input
+                type="checkbox"
+                checked={watermarkEnabled}
+                onChange={(event) => setWatermarkEnabled(event.currentTarget.checked)}
+              />
+              <span>显示 AI 编辑水印</span>
+            </label>
+          </section>
+
+          <label className="authorization">
+            <input
+              type="checkbox"
+              checked={authorizationConfirmed}
+              onChange={(event) => setAuthorizationConfirmed(event.currentTarget.checked)}
+            />
+            <span>
+              我确认拥有处理这两张图片及其中人物肖像的合法授权，并知晓当前输出为明确标记的模拟结果。
+            </span>
+          </label>
 
           <div className="workflow-canvas">
             <div className="canvas-grid" aria-hidden="true" />
@@ -140,16 +246,21 @@ function App() {
           </div>
 
           <footer className="workflow-footer">
-            <p>
-              {sourcePhoto && targetPhoto
-                ? '两张图片已就绪；下一步将加入逐次授权与处理参数。'
-                : '请先选择身份来源图和目标场景图。'}
-            </p>
-            <button type="button" disabled title="将在模型阶段启用">
-              开始处理
+            <div aria-live="polite">
+              <p>
+                {createdTask
+                  ? `任务已提交：${createdTask.status}`
+                  : sourcePhoto && targetPhoto
+                    ? '两张图片已就绪，请确认授权后提交。'
+                    : '请先选择身份来源图和目标场景图。'}
+              </p>
+              {submitError && <p className="submit-error">{submitError}</p>}
+            </div>
+            <button type="submit" disabled={!canSubmit}>
+              {submitting ? '正在提交…' : '开始模拟处理'}
             </button>
           </footer>
-        </section>
+        </form>
       </main>
 
       <footer className="legal-footer">

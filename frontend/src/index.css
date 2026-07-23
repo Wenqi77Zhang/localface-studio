@@ -42,7 +42,8 @@ body {
 }
 
 button,
-input { font: inherit; }
+input,
+select { font: inherit; }
 
 ::selection {
   color: var(--text-strong);
