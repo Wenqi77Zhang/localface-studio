@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 1 已完成，等待阶段 2“模拟推理产品闭环”启动确认。
+当前状态：阶段 1 已完成；阶段 2“模拟推理产品闭环”策划已冻结并开始实施。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -38,8 +38,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 - [第一版验收标准](docs/ACCEPTANCE_CRITERIA.md)
 - [阶段 0 进展日志](docs/progress/phase-00.md)
 - [阶段 1 进展日志](docs/progress/phase-01.md)
+- [阶段 2 进展日志](docs/progress/phase-02.md)
 - [旧项目脱敏复盘](docs/research/LEGACY_PROJECT_REVIEW.md)
 
 ## 当前阶段
 
-阶段 0 和阶段 1 均已于 2026-07-23 通过产品负责人验收。项目现已具备独立运行环境、可测试的前后端骨架、隐私安全日志和统一质量门禁。阶段 2 将在单独确认后实现不依赖模型的模拟推理产品闭环；大型模型的下载仍须等待模型来源、哈希和许可证提示机制确定。
+阶段 0 和阶段 1 均已于 2026-07-23 通过产品负责人验收。项目现已具备独立运行环境、可测试的前后端骨架、隐私安全日志和统一质量门禁。阶段 2 已由产品负责人确认启动，将实现不依赖模型的模拟推理产品闭环；大型模型的下载仍须等待模型来源、哈希和许可证提示机制确定。
