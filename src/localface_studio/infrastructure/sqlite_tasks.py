@@ -157,6 +157,25 @@ class SqliteTaskRepository:
             ).fetchall()
         return [self._from_row(row) for row in rows]
 
+    def list_available_results_for_actor(
+        self,
+        actor_id: str,
+        at: datetime,
+    ) -> list[TaskRecord]:
+        """List one actor's unexpired successful results in reverse completion order."""
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("result listing time must be timezone-aware")
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM tasks
+                WHERE actor_id = ? AND status = ? AND expires_at > ?
+                ORDER BY updated_at DESC, task_id DESC
+                """,
+                (actor_id, TaskStatus.SUCCEEDED.value, at.isoformat()),
+            ).fetchall()
+        return [self._from_row(row) for row in rows]
+
     def list_all(self) -> list[TaskRecord]:
         """List minimal records in stable order for startup recovery."""
         with self._connection() as connection:

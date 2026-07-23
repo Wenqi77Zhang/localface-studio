@@ -146,6 +146,53 @@ def test_expiry_query_requires_timezone_aware_time(tmp_path: Path) -> None:
         repository.list_due_for_expiry(task.created_at.replace(tzinfo=None))
 
 
+def test_available_results_are_actor_isolated_unexpired_and_newest_first(
+    tmp_path: Path,
+) -> None:
+    repository = make_repository(tmp_path)
+    first_source = make_task(task_id="first")
+    second_source = make_task(task_id="second")
+    other_source = make_task(task_id="other", actor_id="actor-two")
+    queued = make_task(task_id="queued")
+    for task in (first_source, second_source, other_source, queued):
+        repository.create(task)
+
+    successful: list[TaskRecord] = []
+    for index, source in enumerate((first_source, second_source, other_source), start=1):
+        running = transition_task(
+            source,
+            TaskStatus.RUNNING,
+            at=source.created_at + timedelta(seconds=index),
+        )
+        repository.save(running, expected_version=source.version)
+        completed = transition_task(
+            running,
+            TaskStatus.SUCCEEDED,
+            at=running.updated_at + timedelta(seconds=index),
+            current_node=WorkflowNode.EXPORT,
+        )
+        repository.save(completed, expected_version=running.version)
+        successful.append(completed)
+
+    at = first_source.created_at + timedelta(minutes=20)
+    assert repository.list_available_results_for_actor("actor-one", at) == [
+        successful[1],
+        successful[0],
+    ]
+    assert (
+        repository.list_available_results_for_actor(
+            "actor-one",
+            first_source.expires_at,
+        )
+        == []
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        repository.list_available_results_for_actor(
+            "actor-one",
+            at.replace(tzinfo=None),
+        )
+
+
 def test_initialize_migrates_existing_tasks_to_default_jpeg_quality(
     tmp_path: Path,
 ) -> None:

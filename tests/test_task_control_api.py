@@ -74,17 +74,31 @@ def test_success_events_download_actor_isolation_and_delete(tmp_path: Path) -> N
                 image.load()
                 assert image.size == (24, 18)
 
+            available = await owner.get("/api/v1/tasks/results")
+            assert available.status_code == 200
+            assert available.headers["cache-control"] == "no-store"
+            assert available.json() == [
+                {
+                    "task_id": task_id,
+                    "completed_at": succeeded["updated_at"],
+                    "expires_at": succeeded["expires_at"],
+                    "output_format": "png",
+                }
+            ]
+
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="http://127.0.0.1",
             ) as stranger:
                 stranger_csrf = await establish_session(stranger)
                 hidden = await stranger.get(f"/api/v1/tasks/{task_id}")
+                hidden_results = await stranger.get("/api/v1/tasks/results")
                 hidden_delete = await stranger.delete(
                     f"/api/v1/tasks/{task_id}",
                     headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: stranger_csrf},
                 )
                 assert hidden.status_code == 404
+                assert hidden_results.json() == []
                 assert hidden_delete.status_code == 404
 
             deleted = await owner.delete(
@@ -95,6 +109,7 @@ def test_success_events_download_actor_isolation_and_delete(tmp_path: Path) -> N
             assert not (tmp_path / "runtime" / "tasks" / task_id).exists()
             unavailable = await owner.get(f"/api/v1/tasks/{task_id}/result")
             assert unavailable.status_code == 409
+            assert (await owner.get("/api/v1/tasks/results")).json() == []
 
     asyncio.run(scenario())
 

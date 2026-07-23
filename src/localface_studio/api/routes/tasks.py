@@ -71,6 +71,13 @@ class TaskResponse(BaseModel):
     watermark_enabled: bool
 
 
+class AvailableResultResponse(BaseModel):
+    task_id: str
+    completed_at: datetime
+    expires_at: datetime
+    output_format: str
+
+
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
@@ -133,6 +140,29 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
         source=_image_response(created.images.source),
         target=_image_response(created.images.target),
     )
+
+
+@router.get("/tasks/results", response_model=list[AvailableResultResponse])
+def list_available_results(
+    request: Request,
+    response: Response,
+) -> list[AvailableResultResponse]:
+    """List only the current actor's unexpired result files, newest first."""
+    session = require_session(request)
+    repository: TaskRepository = request.app.state.task_repository
+    workspaces: TaskWorkspaceStore = request.app.state.task_workspaces
+    results = repository.list_available_results_for_actor(session.actor_id, utc_now())
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        AvailableResultResponse(
+            task_id=task.task_id,
+            completed_at=task.updated_at,
+            expires_at=task.expires_at,
+            output_format=task.output_format.value,
+        )
+        for task in results
+        if workspaces.result_path(task.task_id, task.output_format).is_file()
+    ]
 
 
 @router.get("/tasks/{task_id}", response_model=TaskResponse)

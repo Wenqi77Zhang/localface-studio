@@ -61,6 +61,13 @@ export interface CreatedTask {
   taskId: string
 }
 
+export interface AvailableResult {
+  completedAt: string
+  expiresAt: string
+  outputFormat: 'png' | 'jpeg'
+  taskId: string
+}
+
 export type TaskStatus =
   | 'queued'
   | 'running'
@@ -252,6 +259,70 @@ export async function fetchTaskResult(
     throw new Error('后端返回了空的结果文件。')
   }
   return result
+}
+
+export async function listAvailableResults(
+  signal?: AbortSignal,
+): Promise<AvailableResult[]> {
+  const response = await fetch(`${API_ROOT}/tasks/results`, {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+    signal,
+  })
+  const payload = await readJson(response)
+  if (!response.ok) {
+    throw new Error('无法读取本地结果列表。')
+  }
+  if (!Array.isArray(payload)) {
+    throw new Error('后端返回了无效的结果列表。')
+  }
+  return payload.map((item) => {
+    if (
+      !isObject(item) ||
+      typeof item.task_id !== 'string' ||
+      item.task_id.length === 0 ||
+      typeof item.completed_at !== 'string' ||
+      !Number.isFinite(Date.parse(item.completed_at)) ||
+      typeof item.expires_at !== 'string' ||
+      !Number.isFinite(Date.parse(item.expires_at)) ||
+      (item.output_format !== 'png' && item.output_format !== 'jpeg')
+    ) {
+      throw new Error('后端返回了无效的结果条目。')
+    }
+    return {
+      taskId: item.task_id,
+      completedAt: item.completed_at,
+      expiresAt: item.expires_at,
+      outputFormat: item.output_format,
+    }
+  })
+}
+
+export async function deleteTaskResult(
+  taskId: string,
+  csrfToken: string,
+): Promise<void> {
+  const response = await fetch(`${API_ROOT}/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      [CSRF_HEADER]: csrfToken,
+    },
+  })
+  if (response.ok) {
+    return
+  }
+  const payload = await readJson(response)
+  const detail =
+    isObject(payload) && typeof payload.detail === 'string'
+      ? payload.detail
+      : '无法清除本地图片与结果。'
+  throw new Error(detail)
+}
+
+export function taskResultUrl(taskId: string): string {
+  return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/result`
 }
 
 export function taskEventsUrl(taskId: string): string {

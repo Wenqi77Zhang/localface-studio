@@ -37,6 +37,14 @@ class TaskRepository(Protocol):
         """Return successful results whose retention deadline has passed."""
         ...
 
+    def list_available_results_for_actor(
+        self,
+        actor_id: str,
+        at: datetime,
+    ) -> list[TaskRecord]:
+        """Return one actor's unexpired successful results, newest first."""
+        ...
+
     def list_all(self) -> list[TaskRecord]:
         """Return minimal task records for process-restart recovery."""
         ...

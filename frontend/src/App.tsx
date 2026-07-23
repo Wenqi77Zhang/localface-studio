@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import './App.css'
+import LocalResultGallery from './LocalResultGallery'
 import PhotoPicker from './PhotoPicker'
 import ResultPreview from './ResultPreview'
 import {
@@ -382,6 +383,24 @@ function App() {
     }
   }
 
+  function handleResultsDeleted(taskIds: string[]) {
+    if (createdTask === null || !taskIds.includes(createdTask.taskId)) {
+      return
+    }
+    setSourcePhoto(null)
+    setTargetPhoto(null)
+    setSourceRatio(null)
+    setTargetRatio(null)
+    setAuthorizationConfirmed(false)
+    setCreatedTask(null)
+    setTaskEvent(null)
+    setEventError(null)
+    setSubmitError(null)
+    setCancelling(false)
+    setWorkflowReset(false)
+    setValidationAttempted(false)
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -425,6 +444,13 @@ function App() {
             <div><dt>目标选择</dt><dd>单人</dd></div>
             <div><dt>可见水印</dt><dd>默认开启</dd></div>
           </dl>
+
+          <LocalResultGallery
+            csrfToken={csrfToken}
+            enabled={sessionState === 'ready'}
+            onResultsDeleted={handleResultsDeleted}
+            refreshKey={`${createdTask?.taskId ?? 'none'}:${latestTaskStatus ?? 'none'}`}
+          />
         </aside>
 
         <div className="workflow-column">
