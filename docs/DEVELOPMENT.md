@@ -9,6 +9,10 @@
 - Python 依赖管理器：uv 0.10.6
 - uv 本机审计 SHA-256：`F91929F6C38F9216A96DCD5E208D559BCC0354E9F08E73524889C8211B5DD1A4`
 - 后端：FastAPI 0.139.2、Uvicorn 0.51.0
+- Node.js：项目内便携版 24.18.0 LTS
+- npm：11.16.0
+- Node.js 官方 ZIP SHA-256：`0AE68406B42D7725661DA979B1403EC9926DA205C6770827F33AAC9D8F26E821`
+- 前端：React 19.2.8、TypeScript 6.0.3、Vite 8.1.5
 
 上述 uv 哈希只记录本次目标设备实际执行文件，不能替代官方发布来源校验。后续编写全新设备初始化脚本时，仍需从官方来源下载并校验其发布资产。
 
@@ -74,6 +78,67 @@ uv sync --locked --offline --cache-dir .tools/uv-cache --no-managed-python --no-
 
 停止服务时，在运行窗口按 `Ctrl+C`。
 
+## 前端环境
+
+Node.js 便携包来自官方地址：
+
+<https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip>
+
+安装前必须将 ZIP 的 SHA-256 与同目录官方清单进行比较：
+
+<https://nodejs.org/dist/v24.18.0/SHASUMS256.txt>
+
+校验通过后，Node.js 位于项目根目录的 `.tools/node/`。该目录不会提交到 Git；全新设备的自动下载与校验脚本将在阶段 1 的 Windows 启动入口小节补齐。
+
+在当前 PowerShell 会话中启用项目内 Node.js：
+
+```powershell
+$nodeDir = (Resolve-Path ".tools\node").Path
+$env:Path = "$nodeDir;$env:Path"
+```
+
+严格按照锁文件安装前端依赖：
+
+```powershell
+Set-Location frontend
+& "$nodeDir\npm.cmd" ci --cache ..\.tools\npm-cache
+```
+
+`npm ci` 不会自行修改 `package-lock.json`，配置与锁文件不一致时会失败，适合本地复现和未来的 GitHub Actions。项目内缓存参数可以避免依赖用户级 npm 缓存权限。
+
+缓存完整后可以验证离线重建：
+
+```powershell
+& "$nodeDir\npm.cmd" ci --offline --cache ..\.tools\npm-cache
+```
+
+运行前端静态检查、TypeScript 编译和生产构建：
+
+```powershell
+& "$nodeDir\npm.cmd" run check
+```
+
+启动前端开发服务：
+
+```powershell
+& "$nodeDir\npm.cmd" run dev
+```
+
+页面只监听 <http://127.0.0.1:5173>，并将 `/api` 请求代理到 <http://127.0.0.1:8000>。因此应先在另一个 PowerShell 窗口启动后端。
+
+回到仓库根目录后，可以自动验证页面和 API 代理并确保临时进程被关闭：
+
+```powershell
+Set-Location ..
+.\.venv\Scripts\python.exe scripts\verify_frontend.py
+```
+
+预期输出：
+
+```text
+{"frontend":"ok","api_proxy":"ok"}
+```
+
 ## 当前不包含的能力
 
-这一骨架尚未安装人脸检测、身份向量、换脸模型、ONNX Runtime GPU 或 ComfyUI。健康检查成功只代表 Web 后端和工程打包链路正常，不代表换脸能力已经实现。
+这一骨架尚未安装人脸检测、身份向量、换脸模型、ONNX Runtime GPU 或 ComfyUI。页面和健康检查成功只代表前后端工程链路正常，不代表换脸能力已经实现。

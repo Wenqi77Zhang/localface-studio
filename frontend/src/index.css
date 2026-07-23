@@ -1,0 +1,50 @@
+:root {
+  --bg: #090d12;
+  --panel: #10161d;
+  --border: #202832;
+  --border-strong: #2d3743;
+  --text-strong: #f1f5f7;
+  --text: #aeb7c2;
+  --text-muted: #717c89;
+  --accent: #79d7c2;
+  --accent-soft: rgba(121, 215, 194, 0.1);
+  --accent-border: rgba(121, 215, 194, 0.35);
+  --success: #4bc28e;
+  --warning: #dfa44f;
+  --danger: #e06666;
+  --shadow: 0 30px 80px rgba(0, 0, 0, 0.28);
+  --sans: Inter, "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--sans);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--bg);
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(76, 142, 134, 0.08), transparent 32%),
+    var(--bg);
+}
+
+button,
+input { font: inherit; }
+
+::selection {
+  color: var(--text-strong);
+  background: rgba(121, 215, 194, 0.28);
+}
