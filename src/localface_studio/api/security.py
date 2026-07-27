@@ -13,7 +13,9 @@ CSRF_HEADER = "X-CSRF-Token"
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 FRONTEND_PORTS = frozenset({4173, 5173})
 TASK_UPLOAD_PATH = "/api/v1/tasks"
+DETECTION_UPLOAD_PATH = "/api/v1/face-detections"
 MAXIMUM_TASK_REQUEST_BYTES = (2 * 25 + 1) * 1024 * 1024
+MAXIMUM_DETECTION_REQUEST_BYTES = 26 * 1024 * 1024
 
 
 def reject_untrusted_source(request: Request, settings: Settings) -> Response | None:
@@ -48,9 +50,17 @@ def reject_invalid_csrf(request: Request, sessions: SessionStore) -> Response | 
 
 
 def reject_invalid_task_upload_request(request: Request) -> Response | None:
-    """Bound multipart task bodies before Starlette writes uploaded files to disk."""
-    if request.method != "POST" or request.url.path != TASK_UPLOAD_PATH:
+    """Bound multipart image bodies before Starlette writes uploads to disk."""
+    if request.method != "POST" or request.url.path not in {
+        TASK_UPLOAD_PATH,
+        DETECTION_UPLOAD_PATH,
+    }:
         return None
+    maximum_bytes = (
+        MAXIMUM_TASK_REQUEST_BYTES
+        if request.url.path == TASK_UPLOAD_PATH
+        else MAXIMUM_DETECTION_REQUEST_BYTES
+    )
     content_type = request.headers.get("content-type", "")
     if not content_type.casefold().startswith("multipart/form-data;"):
         return _error(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "multipart form data required")
@@ -63,8 +73,8 @@ def reject_invalid_task_upload_request(request: Request) -> Response | None:
         return _error(status.HTTP_400_BAD_REQUEST, "invalid content length")
     if content_length < 1:
         return _error(status.HTTP_400_BAD_REQUEST, "request body must not be empty")
-    if content_length > MAXIMUM_TASK_REQUEST_BYTES:
-        return _error(status.HTTP_413_CONTENT_TOO_LARGE, "task upload is too large")
+    if content_length > maximum_bytes:
+        return _error(status.HTTP_413_CONTENT_TOO_LARGE, "image upload is too large")
     return None
 
 

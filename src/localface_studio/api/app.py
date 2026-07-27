@@ -2,14 +2,16 @@
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 
 from localface_studio import __version__
+from localface_studio.api.routes.detections import router as detections_router
 from localface_studio.api.routes.health import router as health_router
 from localface_studio.api.routes.session import router as session_router
 from localface_studio.api.routes.tasks import router as tasks_router
@@ -18,6 +20,12 @@ from localface_studio.api.security import (
     reject_invalid_task_upload_request,
     reject_untrusted_source,
 )
+from localface_studio.application.detection_revisions import (
+    CachedDetectorResolver,
+    DetectionRevisionStore,
+    FaceDetectionService,
+)
+from localface_studio.application.face_detection import FaceDetector
 from localface_studio.application.sessions import SessionStore
 from localface_studio.application.task_cleanup import TaskCleanupService
 from localface_studio.application.task_creation import TaskCreationService
@@ -28,6 +36,7 @@ from localface_studio.application.task_queue import (
 )
 from localface_studio.application.uploads import TaskUploadService
 from localface_studio.backends.simulation import SimulationBackend
+from localface_studio.backends.yunet import YUNET_MODEL_ID, YuNetFaceDetector
 from localface_studio.infrastructure.config import Settings, get_settings
 from localface_studio.infrastructure.image_validation import PillowImageValidator
 from localface_studio.infrastructure.logging import configure_logging, log_event
@@ -39,6 +48,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     workflow_backend: WorkflowBackend | None = None,
+    face_detectors: dict[str, FaceDetector] | None = None,
 ) -> FastAPI:
     """Create an isolated application instance for runtime and tests."""
     runtime_settings = settings or get_settings()
@@ -47,6 +57,28 @@ def create_app(
     repository.initialize()
     workspace_store = TaskWorkspaceStore(runtime_settings.runtime_directory / "tasks")
     upload_service = TaskUploadService(workspace_store, PillowImageValidator())
+    project_root = Path(__file__).resolve().parents[3]
+    detector_factories: dict[str, Callable[[], FaceDetector]]
+    if face_detectors is not None:
+        detector_factories = {
+            detector_id: _constant_detector(detector)
+            for detector_id, detector in face_detectors.items()
+        }
+    else:
+        detector_factories = {
+            YUNET_MODEL_ID: lambda: YuNetFaceDetector.from_manifest(
+                project_root / "config" / "models.json",
+                project_root,
+            )
+        }
+    detector_resolver = CachedDetectorResolver(detector_factories)
+    detection_revisions = DetectionRevisionStore()
+    face_detection = FaceDetectionService(
+        upload_service,
+        workspace_store.input_path,
+        detector_resolver,
+        detection_revisions,
+    )
     events = TaskEventBroker()
     backend = workflow_backend or SimulationBackend(workspace_store)
     task_queue = SingleTaskQueue(repository, backend, events, workspace_store.remove)
@@ -84,8 +116,11 @@ def create_app(
     application.state.task_queue = task_queue
     application.state.task_cleanup = cleanup
     application.state.task_workspaces = workspace_store
+    application.state.detection_revisions = detection_revisions
+    application.state.face_detection = face_detection
     application.include_router(health_router, prefix="/api/v1")
     application.include_router(session_router, prefix="/api/v1")
+    application.include_router(detections_router, prefix="/api/v1")
     application.include_router(tasks_router, prefix="/api/v1")
 
     @application.middleware("http")
@@ -137,3 +172,7 @@ def create_app(
         return response
 
     return application
+
+
+def _constant_detector(detector: FaceDetector) -> Callable[[], FaceDetector]:
+    return lambda: detector

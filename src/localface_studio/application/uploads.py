@@ -106,6 +106,21 @@ class TaskUploadService:
             raise
         return UploadedImagePair(task_id=task_id, source=source_image, target=target_image)
 
+    async def save_single(
+        self,
+        workspace_id: str,
+        role: ImageRole,
+        upload: AsyncUpload,
+    ) -> ValidatedImage:
+        """Store one validated image in a disposable isolated workspace."""
+        self._workspace_store.create(workspace_id)
+        try:
+            return await self._save_one(workspace_id, role, upload)
+        except BaseException:
+            with suppress(Exception):
+                self._workspace_store.remove(workspace_id)
+            raise
+
     def discard(self, task_id: str) -> None:
         """Remove a task workspace when a later database operation fails."""
         self._workspace_store.remove(task_id)
