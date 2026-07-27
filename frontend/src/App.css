@@ -590,6 +590,10 @@
   box-shadow: 0 0 0 3px rgba(224, 102, 102, 0.1);
 }
 
+.photo-picker--detection-error .photo-picker__surface {
+  border-color: rgba(224, 102, 102, 0.72);
+}
+
 .photo-picker__surface input {
   width: 1px;
   height: 1px;
@@ -598,7 +602,16 @@
   opacity: 0;
 }
 
-.photo-picker__surface img {
+.photo-picker__select {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.photo-picker__select img {
   width: 100%;
   height: 100%;
   position: absolute;
@@ -609,22 +622,105 @@
   background: #000;
 }
 
-.photo-picker__surface span {
+.photo-picker__select > span {
   padding: 18px;
   display: grid;
   gap: 8px;
   text-align: center;
 }
 
-.photo-picker__surface b {
+.photo-picker__select b {
   color: var(--accent);
   font-size: 13px;
 }
 
-.photo-picker__surface small,
+.photo-picker__select small,
 .field-message {
   color: var(--text-muted);
   font-size: 10px;
+}
+
+.face-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.face-box {
+  padding: 0;
+  position: absolute;
+  border: 2px solid var(--warning);
+  border-radius: 7px;
+  color: #171006;
+  background: rgba(223, 164, 79, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.68),
+    0 0 18px rgba(223, 164, 79, 0.16);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.face-box::after {
+  position: absolute;
+  inset: -7px;
+  content: "";
+}
+
+.face-box:hover:not(:disabled),
+.face-box:focus-visible {
+  border-color: #ffd488;
+  outline: none;
+  background: rgba(223, 164, 79, 0.18);
+}
+
+.face-box--selected {
+  border-color: var(--accent);
+  background: rgba(121, 215, 194, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.68),
+    0 0 0 3px rgba(121, 215, 194, 0.13);
+}
+
+.face-box:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.face-box span {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  position: absolute;
+  top: -11px;
+  left: -11px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.72);
+  border-radius: 999px;
+  color: #11171c;
+  background: var(--warning);
+  font: 700 9px/1 var(--mono);
+}
+
+.face-box--selected span {
+  background: var(--accent);
+}
+
+.detection-badge {
+  padding: 7px 10px;
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 3;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(3, 5, 7, 0.82);
+  backdrop-filter: blur(8px);
+  font: 600 9px/1 var(--mono);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .field-message {

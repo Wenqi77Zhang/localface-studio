@@ -4,6 +4,10 @@ import LocalResultGallery from './LocalResultGallery'
 import PhotoPicker from './PhotoPicker'
 import ResultPreview from './ResultPreview'
 import {
+  useFaceDetection,
+  type FaceDetectionState,
+} from './useFaceDetection'
+import {
   cancelTask,
   checkHealth,
   createTask,
@@ -21,6 +25,7 @@ type ApiState = 'checking' | 'online' | 'offline'
 type SessionState = 'checking' | 'ready' | 'unavailable'
 type OutputFormat = 'png' | 'jpeg'
 type Retention = '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
+type DetectorId = 'yunet-opencv'
 
 const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
@@ -47,6 +52,21 @@ const nodeStateLabels: Record<NodeVisualState, string> = {
   active: '处理中',
   complete: '完成',
   stopped: '已停止',
+}
+
+function hasSelectedFace(state: FaceDetectionState): boolean {
+  return (
+    state.status === 'ready' &&
+    state.revision.selectedDetectionId !== null &&
+    !state.selecting
+  )
+}
+
+function detectionRequirement(
+  label: string,
+  status: FaceDetectionState['status'],
+): string {
+  return status === 'detecting' ? `${label}人物检测` : `${label}人物选择`
 }
 
 function nodeDisplayState(
@@ -85,6 +105,7 @@ function App() {
   const [jpegQuality, setJpegQuality] = useState(95)
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
+  const [detectorId, setDetectorId] = useState<DetectorId>('yunet-opencv')
   const [submitting, setSubmitting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -97,6 +118,18 @@ function App() {
   const [resultError, setResultError] = useState<string | null>(null)
   const [validationAttempted, setValidationAttempted] = useState(false)
   const submitLock = useRef(false)
+  const sourceDetection = useFaceDetection({
+    csrfToken,
+    detectorId,
+    file: sourcePhoto,
+    role: 'source',
+  })
+  const targetDetection = useFaceDetection({
+    csrfToken,
+    detectorId,
+    file: targetPhoto,
+    role: 'target',
+  })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -167,6 +200,8 @@ function App() {
     csrfToken !== null &&
     sourcePhoto !== null &&
     targetPhoto !== null &&
+    hasSelectedFace(sourceDetection.state) &&
+    hasSelectedFace(targetDetection.state) &&
     authorizationConfirmed &&
     !taskInProgress &&
     !submitting
@@ -177,6 +212,12 @@ function App() {
   const missingRequirements = [
     sourcePhoto === null ? '身份来源图' : null,
     targetPhoto === null ? '目标场景图' : null,
+    sourcePhoto !== null && !hasSelectedFace(sourceDetection.state)
+      ? detectionRequirement('身份来源图', sourceDetection.state.status)
+      : null,
+    targetPhoto !== null && !hasSelectedFace(targetDetection.state)
+      ? detectionRequirement('目标场景图', targetDetection.state.status)
+      : null,
     !authorizationConfirmed ? '授权确认' : null,
     apiState !== 'online' || csrfToken === null ? '本地后端连接' : null,
   ].filter((requirement): requirement is string => requirement !== null)
@@ -425,10 +466,10 @@ function App() {
 
       <main className="workspace">
         <aside className="project-panel" aria-label="项目说明">
-          <span className="eyebrow">阶段 2 · 本地产品闭环</span>
+          <span className="eyebrow">阶段 3 · 人脸检测与目标选择</span>
           <h1>精准换脸，<br />数据留在本机。</h1>
           <p className="lead">
-            先建立可审查的工作流边界，再逐步接入检测、选择、换脸与导出能力。
+            已接入本地人脸检测与单人物选择，下一步将选择结果绑定至处理任务。
           </p>
 
           <div className="privacy-card">
@@ -470,9 +511,11 @@ function App() {
               }
               label="身份来源图"
               detail="提供需要保留的身份特征"
+              detection={sourceDetection.state}
               file={sourcePhoto}
               onChange={(file) => changePhoto('source', file)}
               onRatioChange={setSourceRatio}
+              onSelectFace={(detectionId) => void sourceDetection.select(detectionId)}
               previewRatio={sharedPreviewRatio}
             />
             <PhotoPicker
@@ -481,9 +524,11 @@ function App() {
               }
               label="目标场景图"
               detail="提供姿态、背景与待替换人物"
+              detection={targetDetection.state}
               file={targetPhoto}
               onChange={(file) => changePhoto('target', file)}
               onRatioChange={setTargetRatio}
+              onSelectFace={(detectionId) => void targetDetection.select(detectionId)}
               previewRatio={sharedPreviewRatio}
             />
           </div>
@@ -513,9 +558,27 @@ function App() {
           <details className="advanced-settings">
             <summary>
               <span>高级设置</span>
-              <small>（输出格式、JPEG 质量、本地保留、AI 水印）</small>
+              <small>（检测模型、输出格式、JPEG 质量、本地保留、AI 水印）</small>
             </summary>
             <section className="task-options" aria-label="高级处理设置">
+              <label>
+                <span>人脸检测模型</span>
+                <select
+                  value={detectorId}
+                  disabled={submitting || taskInProgress}
+                  onChange={(event) =>
+                    setDetectorId(event.currentTarget.value as DetectorId)
+                  }
+                >
+                  <option value="yunet-opencv">YuNet（默认，可公开使用）</option>
+                  <option value="scrfd-insightface-research" disabled>
+                    SCRFD · InsightFace（尚未安装，仅限研究）
+                  </option>
+                  <option value="scrfd-custom" disabled>
+                    自训练 SCRFD（预留）
+                  </option>
+                </select>
+              </label>
               <label>
                 <span>输出格式</span>
                 <select

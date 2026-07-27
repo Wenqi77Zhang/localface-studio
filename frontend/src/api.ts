@@ -68,6 +68,40 @@ export interface AvailableResult {
   taskId: string
 }
 
+export type FaceImageRole = 'source' | 'target'
+
+export interface FacePoint {
+  x: number
+  y: number
+}
+
+export interface FaceBox {
+  height: number
+  width: number
+  x: number
+  y: number
+}
+
+export interface DetectedFace {
+  box: FaceBox
+  confidence: number
+  detectionId: string
+  landmarks: FacePoint[]
+  ordinal: number
+}
+
+export interface FaceDetectionRevision {
+  detectorId: string
+  expiresAt: string
+  faces: DetectedFace[]
+  height: number
+  revisionId: string
+  role: FaceImageRole
+  selectedDetectionId: string | null
+  selectionRequired: boolean
+  width: number
+}
+
 export type TaskStatus =
   | 'queued'
   | 'running'
@@ -133,6 +167,58 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     jpegQuality: payload.jpeg_quality,
     outputFormat: payload.output_format,
   }
+}
+
+export async function detectFaces(input: {
+  csrfToken: string
+  detectorId: string
+  file: File
+  role: FaceImageRole
+  signal: AbortSignal
+}): Promise<FaceDetectionRevision> {
+  const form = new FormData()
+  form.set('image', input.file)
+  form.set('role', input.role)
+  form.set('detector_id', input.detectorId)
+  const response = await fetch(`${API_ROOT}/face-detections`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { [CSRF_HEADER]: input.csrfToken },
+    body: form,
+    signal: input.signal,
+  })
+  const payload = await readJson(response)
+  if (!response.ok) {
+    throw new Error(apiErrorDetail(payload, '无法检测图片中的人物。'))
+  }
+  return parseDetectionRevision(payload)
+}
+
+export async function selectDetectedFace(input: {
+  csrfToken: string
+  detectionId: string
+  revisionId: string
+  signal: AbortSignal
+}): Promise<FaceDetectionRevision> {
+  const response = await fetch(
+    `${API_ROOT}/face-detections/${encodeURIComponent(input.revisionId)}/selection`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        [CSRF_HEADER]: input.csrfToken,
+      },
+      body: JSON.stringify({ detection_id: input.detectionId }),
+      signal: input.signal,
+    },
+  )
+  const payload = await readJson(response)
+  if (!response.ok) {
+    throw new Error(apiErrorDetail(payload, '无法保存人物选择。'))
+  }
+  return parseDetectionRevision(payload)
 }
 
 const TASK_STATUSES = new Set<TaskStatus>([
@@ -327,4 +413,116 @@ export function taskResultUrl(taskId: string): string {
 
 export function taskEventsUrl(taskId: string): string {
   return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/events`
+}
+
+function parseDetectionRevision(payload: unknown): FaceDetectionRevision {
+  if (
+    !isObject(payload) ||
+    typeof payload.revision_id !== 'string' ||
+    payload.revision_id.length < 16 ||
+    (payload.role !== 'source' && payload.role !== 'target') ||
+    typeof payload.detector_id !== 'string' ||
+    payload.detector_id.length === 0 ||
+    !isPositiveInteger(payload.width) ||
+    !isPositiveInteger(payload.height) ||
+    !Array.isArray(payload.faces) ||
+    !(
+      payload.selected_detection_id === null ||
+      typeof payload.selected_detection_id === 'string'
+    ) ||
+    typeof payload.selection_required !== 'boolean' ||
+    typeof payload.expires_at !== 'string' ||
+    !Number.isFinite(Date.parse(payload.expires_at))
+  ) {
+    throw new Error('后端返回了无效的人脸检测信息。')
+  }
+  const faces = payload.faces.map(parseDetectedFace)
+  const detectionIds = new Set(faces.map((face) => face.detectionId))
+  if (
+    (payload.selected_detection_id !== null &&
+      !detectionIds.has(payload.selected_detection_id)) ||
+    payload.selection_required !==
+      (faces.length > 1 && payload.selected_detection_id === null)
+  ) {
+    throw new Error('后端返回了不一致的人脸选择信息。')
+  }
+  return {
+    revisionId: payload.revision_id,
+    role: payload.role,
+    detectorId: payload.detector_id,
+    width: payload.width,
+    height: payload.height,
+    faces,
+    selectedDetectionId: payload.selected_detection_id,
+    selectionRequired: payload.selection_required,
+    expiresAt: payload.expires_at,
+  }
+}
+
+function parseDetectedFace(value: unknown): DetectedFace {
+  if (
+    !isObject(value) ||
+    typeof value.detection_id !== 'string' ||
+    !value.detection_id.startsWith('face_') ||
+    !isPositiveInteger(value.ordinal) ||
+    !isObject(value.box) ||
+    !isNonNegativeNumber(value.box.x) ||
+    !isNonNegativeNumber(value.box.y) ||
+    !isPositiveNumber(value.box.width) ||
+    !isPositiveNumber(value.box.height) ||
+    !Array.isArray(value.landmarks) ||
+    value.landmarks.length !== 5 ||
+    !isProbability(value.confidence)
+  ) {
+    throw new Error('后端返回了无效的人脸检测框。')
+  }
+  const landmarks = value.landmarks.map((point) => {
+    if (
+      !isObject(point) ||
+      !isNonNegativeNumber(point.x) ||
+      !isNonNegativeNumber(point.y)
+    ) {
+      throw new Error('后端返回了无效的人脸关键点。')
+    }
+    return { x: point.x, y: point.y }
+  })
+  return {
+    detectionId: value.detection_id,
+    ordinal: value.ordinal,
+    box: {
+      x: value.box.x,
+      y: value.box.y,
+      width: value.box.width,
+      height: value.box.height,
+    },
+    landmarks,
+    confidence: value.confidence,
+  }
+}
+
+function apiErrorDetail(payload: unknown, fallback: string): string {
+  return isObject(payload) && typeof payload.detail === 'string'
+    ? payload.detail
+    : fallback
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+}
+
+function isPositiveNumber(value: unknown): value is number {
+  return isNonNegativeNumber(value) && value > 0
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isInteger(value) && isPositiveNumber(value)
+}
+
+function isProbability(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 1
+  )
 }

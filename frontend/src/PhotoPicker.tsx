@@ -1,4 +1,6 @@
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useId, useState } from 'react'
+import type { DetectedFace, FaceDetectionRevision } from './api'
+import type { FaceDetectionState } from './useFaceDetection'
 
 const MAXIMUM_IMAGE_BYTES = 25 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
@@ -9,9 +11,11 @@ interface PhotoPickerProps {
   attentionMessage: string | null
   detail: string
   file: File | null
+  detection: FaceDetectionState
   label: string
   onChange: (file: File | null) => void
   onRatioChange: (ratio: number | null) => void
+  onSelectFace: (detectionId: string) => void
   previewRatio: number
 }
 
@@ -46,16 +50,25 @@ function usePreviewUrl(file: File | null): string | null {
 
 export default function PhotoPicker({
   attentionMessage,
+  detection,
   detail,
   file,
   label,
   onChange,
   onRatioChange,
+  onSelectFace,
   previewRatio,
 }: PhotoPickerProps) {
   const [error, setError] = useState<string | null>(null)
+  const inputId = useId()
   const previewUrl = usePreviewUrl(file)
   const previewStyle = { '--preview-ratio': String(previewRatio) } as CSSProperties
+  const revision = detection.status === 'ready' ? detection.revision : null
+  const selecting = detection.status === 'ready' && detection.selecting
+  const detectionMessage = describeDetection(detection)
+  const detectionFailed =
+    detection.status === 'error' ||
+    (detection.status === 'ready' && detection.revision.faces.length === 0)
 
   function chooseFile(candidate: File | undefined) {
     if (candidate === undefined) {
@@ -75,6 +88,7 @@ export default function PhotoPicker({
         'photo-picker',
         file ? 'photo-picker--ready' : '',
         attentionMessage ? 'photo-picker--attention' : '',
+        detectionFailed ? 'photo-picker--detection-error' : '',
       ].join(' ')}
     >
       <div className="photo-picker__heading">
@@ -97,8 +111,9 @@ export default function PhotoPicker({
         )}
       </div>
 
-      <label className="photo-picker__surface" style={previewStyle}>
+      <div className="photo-picker__surface" style={previewStyle}>
         <input
+          id={inputId}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           onChange={(event) => {
@@ -106,38 +121,122 @@ export default function PhotoPicker({
             event.currentTarget.value = ''
           }}
         />
-        {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt={`${label}本地预览`}
-            onLoad={(event) => {
-              const image = event.currentTarget
-              const naturalRatio = image.naturalWidth / image.naturalHeight
-              onRatioChange(
-                Math.min(
-                  MAXIMUM_PREVIEW_RATIO,
-                  Math.max(MINIMUM_PREVIEW_RATIO, naturalRatio),
-                ),
-              )
-            }}
-          />
-        ) : (
-          <span>
-            <b>选择图片</b>
-            <small>PNG / JPEG / 静态 WebP · 最大 25 MB</small>
-          </span>
+        <label className="photo-picker__select" htmlFor={inputId}>
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={`${label}本地预览`}
+              onLoad={(event) => {
+                const image = event.currentTarget
+                const naturalRatio = image.naturalWidth / image.naturalHeight
+                onRatioChange(
+                  Math.min(
+                    MAXIMUM_PREVIEW_RATIO,
+                    Math.max(MINIMUM_PREVIEW_RATIO, naturalRatio),
+                  ),
+                )
+              }}
+            />
+          ) : (
+            <span>
+              <b>选择图片</b>
+              <small>PNG / JPEG / 静态 WebP · 最大 25 MB</small>
+            </span>
+          )}
+        </label>
+        {revision !== null && revision.faces.length > 0 && (
+          <div className="face-overlay" aria-label={`${label}人物选择`}>
+            {revision.faces.map((face) => (
+              <button
+                key={face.detectionId}
+                type="button"
+                className={[
+                  'face-box',
+                  revision.selectedDetectionId === face.detectionId
+                    ? 'face-box--selected'
+                    : '',
+                ].join(' ')}
+                style={faceBoxStyle(face, revision, previewRatio)}
+                aria-label={`选择人物 ${face.ordinal}`}
+                aria-pressed={revision.selectedDetectionId === face.detectionId}
+                disabled={selecting}
+                onClick={() => onSelectFace(face.detectionId)}
+              >
+                <span>{face.ordinal}</span>
+              </button>
+            ))}
+          </div>
         )}
-      </label>
+        {detection.status === 'detecting' && (
+          <span className="detection-badge" role="status">正在检测人物…</span>
+        )}
+      </div>
 
       <p
         className={
-          error || attentionMessage ? 'field-message field-message--error' : 'field-message'
+          error || attentionMessage || detectionFailed
+            ? 'field-message field-message--error'
+            : 'field-message'
         }
+        aria-live="polite"
       >
         {error ??
           attentionMessage ??
+          detectionMessage ??
           (file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 仅在本机预览` : '尚未选择')}
       </p>
     </section>
   )
+}
+
+function describeDetection(state: FaceDetectionState): string | null {
+  if (state.status === 'detecting') {
+    return '正在使用本地模型检测人物…'
+  }
+  if (state.status === 'error') {
+    return state.message
+  }
+  if (state.status !== 'ready') {
+    return null
+  }
+  if (state.revision.faces.length === 0) {
+    return '未检测到人脸，请更换清晰、正面或人物更大的图片。'
+  }
+  if (state.selecting) {
+    return '正在保存人物选择…'
+  }
+  if (state.revision.selectionRequired) {
+    return `检测到 ${state.revision.faces.length} 人，请点击框选一名人物。`
+  }
+  const selectedOrdinal = state.revision.faces.find(
+    (face) => face.detectionId === state.revision.selectedDetectionId,
+  )?.ordinal
+  return selectedOrdinal === undefined
+    ? '人物检测已完成。'
+    : `已选择人物 ${selectedOrdinal}。`
+}
+
+function faceBoxStyle(
+  face: DetectedFace,
+  revision: FaceDetectionRevision,
+  previewRatio: number,
+): CSSProperties {
+  const imageRatio = revision.width / revision.height
+  let displayedWidth = 100
+  let displayedHeight = 100
+  let offsetX = 0
+  let offsetY = 0
+  if (imageRatio > previewRatio) {
+    displayedHeight = (previewRatio / imageRatio) * 100
+    offsetY = (100 - displayedHeight) / 2
+  } else {
+    displayedWidth = (imageRatio / previewRatio) * 100
+    offsetX = (100 - displayedWidth) / 2
+  }
+  return {
+    left: `${offsetX + (face.box.x / revision.width) * displayedWidth}%`,
+    top: `${offsetY + (face.box.y / revision.height) * displayedHeight}%`,
+    width: `${(face.box.width / revision.width) * displayedWidth}%`,
+    height: `${(face.box.height / revision.height) * displayedHeight}%`,
+  }
 }
