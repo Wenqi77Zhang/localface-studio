@@ -24,6 +24,7 @@ from localface_studio.application.detection_revisions import (
     CachedDetectorResolver,
     DetectionRevisionStore,
     FaceDetectionService,
+    TaskSelectionVerifier,
 )
 from localface_studio.application.face_detection import FaceDetector
 from localface_studio.application.sessions import SessionStore
@@ -79,6 +80,10 @@ def create_app(
         detector_resolver,
         detection_revisions,
     )
+    task_selection_verifier = TaskSelectionVerifier(
+        workspace_store.input_path,
+        detection_revisions,
+    )
     events = TaskEventBroker()
     backend = workflow_backend or SimulationBackend(workspace_store)
     task_queue = SingleTaskQueue(repository, backend, events, workspace_store.remove)
@@ -111,7 +116,11 @@ def create_app(
     application.state.settings = runtime_settings
     application.state.sessions = SessionStore()
     application.state.task_repository = repository
-    application.state.task_creation = TaskCreationService(repository, upload_service)
+    application.state.task_creation = TaskCreationService(
+        repository,
+        upload_service,
+        task_selection_verifier,
+    )
     application.state.task_events = events
     application.state.task_queue = task_queue
     application.state.task_cleanup = cleanup

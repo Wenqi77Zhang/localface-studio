@@ -227,3 +227,13 @@ def test_initialize_migrates_existing_tasks_to_default_jpeg_quality(
     stored = repository.get_for_actor(task.task_id, task.actor_id)
     assert stored is not None
     assert stored.jpeg_quality == 64
+    assert stored.detector_id is None
+    assert stored.source_detection_id is None
+    assert stored.target_detection_id is None
+    with closing(sqlite3.connect(database_path)) as connection:
+        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(tasks)").fetchall()}
+    assert {
+        "detector_id",
+        "source_detection_id",
+        "target_detection_id",
+    } <= columns

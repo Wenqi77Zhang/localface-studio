@@ -30,6 +30,15 @@ class DetectionRevisionError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class VerifiedTaskSelection:
+    """Minimal selection metadata safe to persist with a task."""
+
+    detector_id: str
+    source_detection_id: str
+    target_detection_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class DetectionRevision:
     """Privacy-safe detector output tied to one image content revision."""
 
@@ -142,6 +151,52 @@ class DetectionRevisionStore:
             self._records[revision_id] = updated
             return updated
 
+    def validate_task_pair(
+        self,
+        *,
+        actor_id: str,
+        source_revision_id: str,
+        source_detection_id: str,
+        source_content_sha256: str,
+        target_revision_id: str,
+        target_detection_id: str,
+        target_content_sha256: str,
+    ) -> VerifiedTaskSelection:
+        """Atomically validate two live revisions against exact uploaded bytes."""
+        now = self._aware_now()
+        with self._lock:
+            self._prune(now)
+            source = self._task_revision(
+                source_revision_id,
+                actor_id,
+                ImageRole.SOURCE,
+            )
+            target = self._task_revision(
+                target_revision_id,
+                actor_id,
+                ImageRole.TARGET,
+            )
+            if (
+                source.content_sha256 != source_content_sha256
+                or target.content_sha256 != target_content_sha256
+            ):
+                raise DetectionRevisionError(
+                    "detection_image_mismatch",
+                    "The uploaded images no longer match their detection revisions.",
+                )
+            self._require_selected_face(source, source_detection_id)
+            self._require_selected_face(target, target_detection_id)
+            if source.detector_id != target.detector_id:
+                raise DetectionRevisionError(
+                    "face_detector_mismatch",
+                    "Both images must use the same face detector.",
+                )
+            return VerifiedTaskSelection(
+                detector_id=source.detector_id,
+                source_detection_id=source_detection_id,
+                target_detection_id=target_detection_id,
+            )
+
     def _prune(self, now: datetime) -> None:
         expired = [
             revision_id for revision_id, record in self._records.items() if record.expires_at <= now
@@ -164,6 +219,33 @@ class DetectionRevisionStore:
         key = (record.actor_id, record.role)
         if self._active_by_role.get(key) == revision_id:
             self._active_by_role.pop(key, None)
+
+    def _task_revision(
+        self,
+        revision_id: str,
+        actor_id: str,
+        role: ImageRole,
+    ) -> DetectionRevision:
+        record = self._records.get(revision_id)
+        if record is None or record.actor_id != actor_id or record.role is not role:
+            raise DetectionRevisionError(
+                "detection_revision_invalid",
+                "A required detection revision is unavailable or expired.",
+            )
+        return record
+
+    @staticmethod
+    def _require_selected_face(
+        revision: DetectionRevision,
+        detection_id: str,
+    ) -> None:
+        if revision.selected_detection_id != detection_id or detection_id not in {
+            face.detection_id for face in revision.faces
+        }:
+            raise DetectionRevisionError(
+                "face_selection_invalid",
+                "The selected face does not match its detection revision.",
+            )
 
     def _aware_now(self) -> datetime:
         now = self._clock()
@@ -228,6 +310,44 @@ class FaceDetectionService:
             )
         finally:
             self._uploads.discard(workspace_id)
+
+
+class TaskSelectionVerifier:
+    """Match task uploads to actor-owned detection revisions without persistence."""
+
+    def __init__(
+        self,
+        input_path: Callable[[str, ImageRole], Path],
+        revisions: DetectionRevisionStore,
+    ) -> None:
+        self._input_path = input_path
+        self._revisions = revisions
+
+    async def verify(
+        self,
+        *,
+        task_id: str,
+        actor_id: str,
+        source_revision_id: str,
+        source_detection_id: str,
+        target_revision_id: str,
+        target_detection_id: str,
+    ) -> VerifiedTaskSelection:
+        source_path = self._input_path(task_id, ImageRole.SOURCE)
+        target_path = self._input_path(task_id, ImageRole.TARGET)
+        source_digest, target_digest = await asyncio.gather(
+            asyncio.to_thread(_file_sha256, source_path),
+            asyncio.to_thread(_file_sha256, target_path),
+        )
+        return self._revisions.validate_task_pair(
+            actor_id=actor_id,
+            source_revision_id=source_revision_id,
+            source_detection_id=source_detection_id,
+            source_content_sha256=source_digest,
+            target_revision_id=target_revision_id,
+            target_detection_id=target_detection_id,
+            target_content_sha256=target_digest,
+        )
 
 
 class CachedDetectorResolver:

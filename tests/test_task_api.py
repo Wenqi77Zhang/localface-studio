@@ -4,8 +4,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import httpx
 from PIL import Image
@@ -14,10 +16,18 @@ from localface_studio.api.app import create_app
 from localface_studio.api.security import CSRF_HEADER, MAXIMUM_TASK_REQUEST_BYTES
 from localface_studio.application.task_creation import CONSENT_VERSION
 from localface_studio.application.task_queue import NodeReporter
+from localface_studio.domain.faces import (
+    DetectedFace,
+    FaceBox,
+    FacePoint,
+    stable_detection_id,
+)
+from localface_studio.domain.images import ImageRole
 from localface_studio.domain.tasks import TaskRecord, TaskStatus, WorkflowNode
 from localface_studio.infrastructure.config import Settings
 
 LOCAL_ORIGIN = "http://127.0.0.1:5173"
+DETECTOR_ID = "yunet-opencv"
 
 
 @asynccontextmanager
@@ -63,12 +73,68 @@ def task_form(
         "jpeg_quality": jpeg_quality,
         "watermark_enabled": watermark,
         "retention": retention,
+        "source_revision_id": "missing-source-revision",
+        "source_detection_id": "face_00000000000000000000",
+        "target_revision_id": "missing-target-revision",
+        "target_detection_id": "face_11111111111111111111",
     }
     files = {
         "source": ("private-source.png", png_bytes(), "image/png"),
         "target": ("private-target.png", target or png_bytes(size=(24, 18)), "image/png"),
     }
     return data, files
+
+
+async def authorize_task_form(
+    app: Any,
+    client: httpx.AsyncClient,
+    data: dict[str, str],
+    files: dict[str, tuple[str, bytes, str]],
+) -> None:
+    """Create exact actor-owned revisions for one generated test upload pair."""
+    session_id = client.cookies.get("localface_session")
+    session = app.state.sessions.get(session_id)
+    assert session is not None
+    source_face = _face(5)
+    target_face = _face(9)
+    source = app.state.detection_revisions.create(
+        actor_id=session.actor_id,
+        role=ImageRole.SOURCE,
+        detector_id=DETECTOR_ID,
+        content_sha256=sha256(files["source"][1]).hexdigest(),
+        width=20,
+        height=16,
+        faces=(source_face,),
+    )
+    target = app.state.detection_revisions.create(
+        actor_id=session.actor_id,
+        role=ImageRole.TARGET,
+        detector_id=DETECTOR_ID,
+        content_sha256=sha256(files["target"][1]).hexdigest(),
+        width=24,
+        height=18,
+        faces=(target_face,),
+    )
+    data.update(
+        {
+            "source_revision_id": source.revision_id,
+            "source_detection_id": source_face.detection_id,
+            "target_revision_id": target.revision_id,
+            "target_detection_id": target_face.detection_id,
+        }
+    )
+
+
+def _face(x: float) -> DetectedFace:
+    box = FaceBox(x=x, y=2, width=8, height=8)
+    landmarks = tuple(FacePoint(x=x + index / 2, y=3 + index / 2) for index in range(5))
+    return DetectedFace(
+        detection_id=stable_detection_id(DETECTOR_ID, box, landmarks),
+        detector_id=DETECTOR_ID,
+        box=box,
+        landmarks=landmarks,
+        confidence=0.98,
+    )
 
 
 async def establish_session(client: httpx.AsyncClient) -> str:
@@ -88,6 +154,7 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
                 watermark="false",
                 retention="24h",
             )
+            await authorize_task_form(app, client, data, files)
             response = await client.post(
                 "/api/v1/tasks",
                 data=data,
@@ -116,6 +183,9 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         assert stored.status is TaskStatus.SUCCEEDED
         assert stored.consent_version == CONSENT_VERSION
         assert stored.jpeg_quality == 73
+        assert stored.detector_id == DETECTOR_ID
+        assert stored.source_detection_id == data["source_detection_id"]
+        assert stored.target_detection_id == data["target_detection_id"]
         assert datetime.fromisoformat(payload["expires_at"]) - stored.created_at == timedelta(
             hours=24
         )
@@ -189,6 +259,7 @@ def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> 
             responses = []
             for _ in range(4):
                 data, files = task_form()
+                await authorize_task_form(app, client, data, files)
                 responses.append(
                     await client.post(
                         "/api/v1/tasks",
@@ -202,6 +273,33 @@ def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> 
         assert [response.status_code for response in responses] == [201, 201, 201, 429]
         assert responses[-1].json()["code"] == "task_limit_exceeded"
         assert len(list((tmp_path / "runtime" / "tasks").iterdir())) == 3
+
+    asyncio.run(scenario())
+
+
+def test_task_rejects_changed_image_and_removes_workspace(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            data, files = task_form()
+            await authorize_task_form(app, client, data, files)
+            files["source"] = (
+                "changed-source.png",
+                png_bytes(size=(22, 17)),
+                "image/png",
+            )
+            response = await client.post(
+                "/api/v1/tasks",
+                data=data,
+                files=files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "detection_image_mismatch"
+        assert app.state.task_repository.list_all() == []
+        assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
 
     asyncio.run(scenario())
 

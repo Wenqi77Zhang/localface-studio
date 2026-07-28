@@ -49,8 +49,15 @@ export interface CreateTaskInput {
   outputFormat: 'png' | 'jpeg'
   retention: '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
   source: File
+  sourceDetection: TaskFaceSelection
   target: File
+  targetDetection: TaskFaceSelection
   watermarkEnabled: boolean
+}
+
+export interface TaskFaceSelection {
+  detectionId: string
+  revisionId: string
 }
 
 export interface CreatedTask {
@@ -126,6 +133,10 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
   const form = new FormData()
   form.set('source', input.source)
   form.set('target', input.target)
+  form.set('source_revision_id', input.sourceDetection.revisionId)
+  form.set('source_detection_id', input.sourceDetection.detectionId)
+  form.set('target_revision_id', input.targetDetection.revisionId)
+  form.set('target_detection_id', input.targetDetection.detectionId)
   form.set('authorization_confirmed', String(input.authorizationConfirmed))
   form.set('output_format', input.outputFormat)
   form.set('jpeg_quality', String(input.jpegQuality))

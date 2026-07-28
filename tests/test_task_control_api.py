@@ -14,6 +14,7 @@ from localface_studio.infrastructure.config import Settings
 from tests.test_task_api import (
     LOCAL_ORIGIN,
     BlockingBackend,
+    authorize_task_form,
     establish_session,
     running_client,
     task_form,
@@ -41,6 +42,7 @@ def test_success_events_download_actor_isolation_and_delete(tmp_path: Path) -> N
         async with running_client(app) as owner:
             csrf = await establish_session(owner)
             data, files = task_form()
+            await authorize_task_form(app, owner, data, files)
             created = await owner.post(
                 "/api/v1/tasks",
                 data=data,
@@ -124,6 +126,7 @@ def test_running_task_must_be_cancelled_before_deletion(tmp_path: Path) -> None:
         async with running_client(app) as client:
             csrf = await establish_session(client)
             data, files = task_form()
+            await authorize_task_form(app, client, data, files)
             created = await client.post(
                 "/api/v1/tasks",
                 data=data,

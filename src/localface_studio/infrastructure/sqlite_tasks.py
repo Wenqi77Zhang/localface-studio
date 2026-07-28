@@ -39,6 +39,9 @@ class SqliteTaskRepository:
                     watermark_enabled INTEGER NOT NULL CHECK (watermark_enabled IN (0, 1)),
                     jpeg_quality INTEGER NOT NULL DEFAULT 95
                         CHECK (jpeg_quality BETWEEN 5 AND 100),
+                    detector_id TEXT,
+                    source_detection_id TEXT,
+                    target_detection_id TEXT,
                     version INTEGER NOT NULL CHECK (version >= 0),
                     current_node TEXT,
                     error_code TEXT
@@ -61,6 +64,13 @@ class SqliteTaskRepository:
                         CHECK (jpeg_quality BETWEEN 5 AND 100)
                     """
                 )
+            for column in (
+                "detector_id",
+                "source_detection_id",
+                "target_detection_id",
+            ):
+                if column not in columns:
+                    connection.execute(f"ALTER TABLE tasks ADD COLUMN {column} TEXT")
 
     def create(self, task: TaskRecord) -> None:
         """Insert a new task, mapping identifier collisions to a stable exception."""
@@ -73,8 +83,9 @@ class SqliteTaskRepository:
                     INSERT INTO tasks (
                         task_id, actor_id, status, created_at, updated_at, expires_at,
                         consent_version, consented_at, output_format, watermark_enabled,
-                        jpeg_quality, version, current_node, error_code
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        jpeg_quality, detector_id, source_detection_id, target_detection_id,
+                        version, current_node, error_code
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     self._values(task),
                 )
@@ -104,6 +115,9 @@ class SqliteTaskRepository:
                     output_format = ?,
                     watermark_enabled = ?,
                     jpeg_quality = ?,
+                    detector_id = ?,
+                    source_detection_id = ?,
+                    target_detection_id = ?,
                     version = ?,
                     current_node = ?,
                     error_code = ?
@@ -116,6 +130,9 @@ class SqliteTaskRepository:
                     task.output_format.value,
                     int(task.watermark_enabled),
                     task.jpeg_quality,
+                    task.detector_id,
+                    task.source_detection_id,
+                    task.target_detection_id,
                     task.version,
                     task.current_node.value if task.current_node is not None else None,
                     task.error_code,
@@ -215,6 +232,9 @@ class SqliteTaskRepository:
             task.output_format.value,
             int(task.watermark_enabled),
             task.jpeg_quality,
+            task.detector_id,
+            task.source_detection_id,
+            task.target_detection_id,
             task.version,
             task.current_node.value if task.current_node is not None else None,
             task.error_code,
@@ -235,7 +255,14 @@ class SqliteTaskRepository:
             output_format=OutputFormat(str(row["output_format"])),
             watermark_enabled=bool(row["watermark_enabled"]),
             jpeg_quality=int(row["jpeg_quality"]),
+            detector_id=_optional_text(row["detector_id"]),
+            source_detection_id=_optional_text(row["source_detection_id"]),
+            target_detection_id=_optional_text(row["target_detection_id"]),
             version=int(row["version"]),
             current_node=WorkflowNode(str(current_node)) if current_node is not None else None,
             error_code=str(row["error_code"]) if row["error_code"] is not None else None,
         )
+
+
+def _optional_text(value: object) -> str | None:
+    return str(value) if value is not None else None

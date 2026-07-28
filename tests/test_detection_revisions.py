@@ -136,3 +136,76 @@ def test_explicit_invalidation_clears_only_the_requested_actor_role() -> None:
 
     assert store.get_for_actor(source.revision_id, "actor-a") is None
     assert store.get_for_actor(target.revision_id, "actor-a") == target
+
+
+def test_task_pair_requires_exact_actor_bytes_and_selected_faces() -> None:
+    store = DetectionRevisionStore()
+    source_face = face(10)
+    target_face = face(50)
+    source = store.create(
+        actor_id="actor-a",
+        role=ImageRole.SOURCE,
+        detector_id=DETECTOR_ID,
+        content_sha256="1" * 64,
+        width=100,
+        height=80,
+        faces=(source_face,),
+    )
+    target = store.create(
+        actor_id="actor-a",
+        role=ImageRole.TARGET,
+        detector_id=DETECTOR_ID,
+        content_sha256="2" * 64,
+        width=100,
+        height=80,
+        faces=(target_face,),
+    )
+
+    verified = store.validate_task_pair(
+        actor_id="actor-a",
+        source_revision_id=source.revision_id,
+        source_detection_id=source_face.detection_id,
+        source_content_sha256="1" * 64,
+        target_revision_id=target.revision_id,
+        target_detection_id=target_face.detection_id,
+        target_content_sha256="2" * 64,
+    )
+    assert verified.detector_id == DETECTOR_ID
+    assert verified.source_detection_id == source_face.detection_id
+    assert verified.target_detection_id == target_face.detection_id
+
+    with pytest.raises(DetectionRevisionError) as wrong_actor:
+        store.validate_task_pair(
+            actor_id="actor-b",
+            source_revision_id=source.revision_id,
+            source_detection_id=source_face.detection_id,
+            source_content_sha256="1" * 64,
+            target_revision_id=target.revision_id,
+            target_detection_id=target_face.detection_id,
+            target_content_sha256="2" * 64,
+        )
+    assert wrong_actor.value.code == "detection_revision_invalid"
+
+    with pytest.raises(DetectionRevisionError) as wrong_bytes:
+        store.validate_task_pair(
+            actor_id="actor-a",
+            source_revision_id=source.revision_id,
+            source_detection_id=source_face.detection_id,
+            source_content_sha256="9" * 64,
+            target_revision_id=target.revision_id,
+            target_detection_id=target_face.detection_id,
+            target_content_sha256="2" * 64,
+        )
+    assert wrong_bytes.value.code == "detection_image_mismatch"
+
+    with pytest.raises(DetectionRevisionError) as wrong_face:
+        store.validate_task_pair(
+            actor_id="actor-a",
+            source_revision_id=source.revision_id,
+            source_detection_id="face_00000000000000000000",
+            source_content_sha256="1" * 64,
+            target_revision_id=target.revision_id,
+            target_detection_id=target_face.detection_id,
+            target_content_sha256="2" * 64,
+        )
+    assert wrong_face.value.code == "face_selection_invalid"

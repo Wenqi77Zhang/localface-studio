@@ -18,6 +18,7 @@ import {
   taskEventsUrl,
   type CreatedTask,
   type TaskEvent,
+  type TaskFaceSelection,
   type WorkflowNode,
 } from './api'
 
@@ -60,6 +61,22 @@ function hasSelectedFace(state: FaceDetectionState): boolean {
     state.revision.selectedDetectionId !== null &&
     !state.selecting
   )
+}
+
+function taskFaceSelection(
+  state: FaceDetectionState,
+): TaskFaceSelection | null {
+  if (
+    state.status !== 'ready' ||
+    state.selecting ||
+    state.revision.selectedDetectionId === null
+  ) {
+    return null
+  }
+  return {
+    revisionId: state.revision.revisionId,
+    detectionId: state.revision.selectedDetectionId,
+  }
 }
 
 function detectionRequirement(
@@ -350,6 +367,11 @@ function App() {
     ) {
       return
     }
+    const sourceSelection = taskFaceSelection(sourceDetection.state)
+    const targetSelection = taskFaceSelection(targetDetection.state)
+    if (sourceSelection === null || targetSelection === null) {
+      return
+    }
     submitLock.current = true
     setSubmitting(true)
     setSubmitError(null)
@@ -365,7 +387,9 @@ function App() {
         outputFormat,
         retention,
         source: sourcePhoto,
+        sourceDetection: sourceSelection,
         target: targetPhoto,
+        targetDetection: targetSelection,
         watermarkEnabled,
       })
       setCreatedTask(task)

@@ -12,6 +12,7 @@ from starlette.datastructures import FormData, UploadFile
 from starlette.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from localface_studio.api.security import require_session
+from localface_studio.application.detection_revisions import DetectionRevisionError
 from localface_studio.application.task_creation import (
     CONSENT_VERSION,
     AuthorizationRequiredError,
@@ -81,7 +82,7 @@ class AvailableResultResponse(BaseModel):
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
-    async with request.form(max_files=2, max_fields=5, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=2, max_fields=9, max_part_size=16 * 1024) as form:
         try:
             source = _upload(form, "source")
             target = _upload(form, "target")
@@ -92,6 +93,10 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
             retention = RetentionOption(
                 _text(form, "retention", RetentionOption.THIRTY_MINUTES.value)
             )
+            source_revision_id = _required_text(form, "source_revision_id")
+            source_detection_id = _required_text(form, "source_detection_id")
+            target_revision_id = _required_text(form, "target_revision_id")
+            target_detection_id = _required_text(form, "target_detection_id")
         except ValueError as error:
             return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid_form", str(error))
 
@@ -106,6 +111,10 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 jpeg_quality=jpeg_quality,
                 watermark_enabled=watermark_enabled,
                 retention=retention,
+                source_revision_id=source_revision_id,
+                source_detection_id=source_detection_id,
+                target_revision_id=target_revision_id,
+                target_detection_id=target_detection_id,
             )
         except AuthorizationRequiredError as error:
             return _error(
@@ -117,6 +126,8 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
             return _error(status.HTTP_429_TOO_MANY_REQUESTS, "task_limit_exceeded", str(error))
         except ImageUploadError as error:
             return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, error.code, str(error))
+        except DetectionRevisionError as error:
+            return _error(status.HTTP_409_CONFLICT, error.code, str(error))
 
     queue: SingleTaskQueue = request.app.state.task_queue
     try:
@@ -297,6 +308,13 @@ def _text(form: FormData, field: str, default: str) -> str:
     value = form.get(field, default)
     if not isinstance(value, str):
         raise ValueError(f"{field} must be text")
+    return value
+
+
+def _required_text(form: FormData, field: str) -> str:
+    value = _text(form, field, "")
+    if not value.strip():
+        raise ValueError(f"{field} is required")
     return value
 
 

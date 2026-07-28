@@ -97,6 +97,9 @@ class TaskRecord:
     output_format: OutputFormat
     watermark_enabled: bool
     jpeg_quality: int = 95
+    detector_id: str | None = None
+    source_detection_id: str | None = None
+    target_detection_id: str | None = None
     version: int = 0
     current_node: WorkflowNode | None = None
     error_code: str | None = None
@@ -117,6 +120,17 @@ class TaskRecord:
             raise ValueError("version must not be negative")
         if type(self.jpeg_quality) is not int or not 5 <= self.jpeg_quality <= 100:
             raise ValueError("jpeg_quality must be an integer from 5 to 100")
+        selection_values = (
+            self.detector_id,
+            self.source_detection_id,
+            self.target_detection_id,
+        )
+        if any(value is None for value in selection_values) and not all(
+            value is None for value in selection_values
+        ):
+            raise ValueError("task face selection metadata must be complete or absent")
+        if any(value is not None and not value.strip() for value in selection_values):
+            raise ValueError("task face selection metadata must not be blank")
         if self.error_code is not None and not self.error_code.strip():
             raise ValueError("error_code must be absent or non-blank")
         if self.status is TaskStatus.FAILED and self.error_code is None:
