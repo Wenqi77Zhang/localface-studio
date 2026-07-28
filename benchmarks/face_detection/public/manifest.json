@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "detector_id": "yunet-opencv",
+  "cases": [
+    {
+      "id": "synthetic-01-single-frontal",
+      "image": "assets/synthetic-01-single-frontal.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "frontal",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.3841145833,
+          "y": 0.2734375,
+          "width": 0.2278645833,
+          "height": 0.44921875
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-02-three-frontal",
+      "image": "assets/synthetic-02-three-frontal.webp",
+      "categories": [
+        "synthetic",
+        "multiple",
+        "frontal",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.1009114583,
+          "y": 0.17578125,
+          "width": 0.1334635417,
+          "height": 0.25390625
+        },
+        {
+          "x": 0.4427083333,
+          "y": 0.3125,
+          "width": 0.1204427083,
+          "height": 0.234375
+        },
+        {
+          "x": 0.7486979167,
+          "y": 0.2001953125,
+          "width": 0.13671875,
+          "height": 0.25390625
+        }
+      ],
+      "provenance": "Project-generated synthetic adults; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-03-small-distant",
+      "image": "assets/synthetic-03-small-distant.jpg",
+      "categories": [
+        "synthetic",
+        "single",
+        "small-face",
+        "outdoor",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.4986979167,
+          "y": 0.5048828125,
+          "width": 0.015625,
+          "height": 0.03125
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-04-profile-occluded",
+      "image": "assets/synthetic-04-profile-occluded.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "profile",
+        "partial-occlusion",
+        "side-light"
+      ],
+      "faces": [
+        {
+          "x": 0.3678385417,
+          "y": 0.185546875,
+          "width": 0.25390625,
+          "height": 0.517578125
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-05-rotated",
+      "image": "assets/synthetic-05-rotated.webp",
+      "categories": [
+        "synthetic",
+        "single",
+        "frontal",
+        "in-plane-rotation",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.1888020833,
+          "y": 0.1708984375,
+          "width": 0.3255208333,
+          "height": 0.4541015625
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-06-backlit",
+      "image": "assets/synthetic-06-backlit.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "frontal",
+        "backlit",
+        "high-dynamic-range"
+      ],
+      "faces": [
+        {
+          "x": 0.400390625,
+          "y": 0.17578125,
+          "width": 0.2213541667,
+          "height": 0.458984375
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-07-low-light",
+      "image": "assets/synthetic-07-low-light.webp",
+      "categories": [
+        "synthetic",
+        "single",
+        "frontal",
+        "low-light",
+        "sensor-noise"
+      ],
+      "faces": [
+        {
+          "x": 0.3971354167,
+          "y": 0.21484375,
+          "width": 0.25390625,
+          "height": 0.546875
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-08-motion-blur",
+      "image": "assets/synthetic-08-motion-blur.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "motion-blur",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.3743489583,
+          "y": 0.1416015625,
+          "width": 0.234375,
+          "height": 0.4296875
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-09-edge-cropped",
+      "image": "assets/synthetic-09-edge-cropped.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "edge-cropped",
+        "neutral-light"
+      ],
+      "faces": [
+        {
+          "x": 0.0,
+          "y": 0.0390625,
+          "width": 0.37109375,
+          "height": 0.830078125
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-10-back-view-negative",
+      "image": "assets/synthetic-10-back-view-negative.png",
+      "categories": [
+        "synthetic",
+        "negative-control",
+        "person-present",
+        "no-visible-face",
+        "outdoor"
+      ],
+      "faces": [],
+      "provenance": "Project-generated synthetic adult with no visible face; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-11-glasses-cap",
+      "image": "assets/synthetic-11-glasses-cap.png",
+      "categories": [
+        "synthetic",
+        "single",
+        "frontal",
+        "clear-glasses",
+        "cap-shadow"
+      ],
+      "faces": [
+        {
+          "x": 0.361328125,
+          "y": 0.224609375,
+          "width": 0.234375,
+          "height": 0.4296875
+        }
+      ],
+      "provenance": "Project-generated synthetic adult; see PROVENANCE.md."
+    },
+    {
+      "id": "synthetic-12-mixed-scale-four",
+      "image": "assets/synthetic-12-mixed-scale-four.png",
+      "categories": [
+        "synthetic",
+        "multiple",
+        "mixed-scale",
+        "small-face",
+        "indoor-depth"
+      ],
+      "faces": [
+        {
+          "x": 0.6608072917,
+          "y": 0.1171875,
+          "width": 0.2669270833,
+          "height": 0.5078125
+        },
+        {
+          "x": 0.5208333333,
+          "y": 0.193359375,
+          "width": 0.0208333333,
+          "height": 0.0380859375
+        },
+        {
+          "x": 0.3483072917,
+          "y": 0.2099609375,
+          "width": 0.046875,
+          "height": 0.0927734375
+        },
+        {
+          "x": 0.0911458333,
+          "y": 0.2099609375,
+          "width": 0.0716145833,
+          "height": 0.1416015625
+        }
+      ],
+      "provenance": "Project-generated synthetic adults; see PROVENANCE.md."
+    }
+  ]
+}
