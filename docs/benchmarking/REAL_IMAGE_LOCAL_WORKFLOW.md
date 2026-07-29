@@ -37,6 +37,14 @@ Open Images 将图片列为 CC BY 2.0，但同时明确不对每张图片的许�
 
 重复运行不会覆盖已有台账或人工标注。
 
+下载官方 CSV 元数据后，运行以下命令生成 40 条本地候选审查队列：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prepare_open_images_candidates.py
+```
+
+该工具不下载图片，也不批准许可证。它会排除 Open Images 标记为描绘作品或群组框的图片、缺少来源字段的记录、旋转信息未知的记录及非 CC BY 2.0 声明，并按单脸、多脸、遮挡、裁切、大小与旋转情况生成确定性的候选顺序。输出 `candidate-review-queue.json` 位于被 Git 忽略的本地工作区。
+
 ## 单张候选的准入顺序
 
 1. 先打开 `OriginalLandingURL`，再考虑下载图片。
