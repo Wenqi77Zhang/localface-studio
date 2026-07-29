@@ -12,8 +12,6 @@ from time import perf_counter
 from typing import Any
 
 import cv2
-import numpy as np
-from PIL import Image
 
 from localface_studio.backends.yunet import YuNetFaceDetector
 from localface_studio.benchmarking.face_detection import (
@@ -23,6 +21,7 @@ from localface_studio.benchmarking.face_detection import (
     load_benchmark_manifest,
 )
 from localface_studio.domain.faces import DetectedFace
+from localface_studio.infrastructure.image_decoding import decode_bgr_autorotated
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "runtime" / "benchmarks" / "yunet-report.json"
@@ -47,7 +46,7 @@ def main() -> None:
         image_path = (manifest_path.parent / Path(case.image_path.as_posix())).resolve()
         if not image_path.is_relative_to(manifest_path.parent):
             raise BenchmarkManifestError("benchmark_image_escaped_manifest_directory")
-        image = decode_bgr(image_path)
+        image = decode_bgr_autorotated(image_path)
         for _ in range(WARMUP_RUNS):
             detector.detect(image)
         durations: list[float] = []
@@ -113,12 +112,6 @@ def parse_args() -> argparse.Namespace:
         help="Local JSON report path; defaults under ignored runtime/.",
     )
     return parser.parse_args()
-
-
-def decode_bgr(path: Path) -> np.ndarray:
-    with Image.open(path) as image:
-        rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    return np.ascontiguousarray(rgb[:, :, ::-1])
 
 
 def summarize(evaluations: list[CaseEvaluation]) -> dict[str, float | int]:

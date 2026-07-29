@@ -55,6 +55,14 @@ def png_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def exif_rotated_jpeg_bytes() -> bytes:
+    buffer = BytesIO()
+    image = Image.new("RGB", (40, 30), color=(10, 20, 30))
+    image.getexif()[274] = 6
+    image.save(buffer, format="JPEG", exif=image.getexif(), quality=100, subsampling=0)
+    return buffer.getvalue()
+
+
 async def establish_session(client: httpx.AsyncClient) -> str:
     response = await client.get("/api/v1/session")
     assert response.status_code == 200
@@ -93,6 +101,31 @@ def test_single_face_is_auto_selected_and_pixels_are_deleted(tmp_path: Path) -> 
         assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
         assert detector.seen_bgr is not None
         assert detector.seen_bgr[0, 0].tolist() == [30, 20, 10]
+
+    asyncio.run(scenario())
+
+
+def test_exif_orientation_controls_detector_pixels_and_response_geometry(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        detector = FakeDetector(1)
+        app = create_app(
+            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            face_detectors={DETECTOR_ID: detector},
+        )
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            response = await client.post(
+                "/api/v1/face-detections",
+                data={"role": "source", "detector_id": DETECTOR_ID},
+                files={"image": ("oriented.jpg", exif_rotated_jpeg_bytes(), "image/jpeg")},
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["width"] == 30
+        assert response.json()["height"] == 40
+        assert detector.seen_bgr is not None
+        assert detector.seen_bgr.shape == (40, 30, 3)
 
     asyncio.run(scenario())
 

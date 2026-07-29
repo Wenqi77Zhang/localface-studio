@@ -9,13 +9,11 @@ from pathlib import Path
 from threading import Lock
 from uuid import uuid4
 
-import numpy as np
-from PIL import Image
-
 from localface_studio.application.face_detection import FaceDetector
 from localface_studio.application.uploads import AsyncUpload, TaskUploadService
 from localface_studio.domain.faces import DetectedFace
 from localface_studio.domain.images import ImageRole
+from localface_studio.infrastructure.image_decoding import decode_bgr_autorotated
 
 DETECTION_REVISION_TTL = timedelta(minutes=30)
 MAXIMUM_DETECTION_REVISIONS = 256
@@ -280,10 +278,10 @@ class FaceDetectionService:
         workspace_id = uuid4().hex
         self._revisions.invalidate(actor_id, role)
         try:
-            validated = await self._uploads.save_single(workspace_id, role, upload)
+            await self._uploads.save_single(workspace_id, role, upload)
             path = self._input_path(workspace_id, role)
             content_sha256 = await asyncio.to_thread(_file_sha256, path)
-            image = await asyncio.to_thread(_decode_bgr, path)
+            image = await asyncio.to_thread(decode_bgr_autorotated, path)
             try:
                 detector = self._detector_resolver(detector_id)
                 faces = await asyncio.to_thread(detector.detect, image)
@@ -299,13 +297,14 @@ class FaceDetectionService:
                     "face_detector_mismatch",
                     "The selected face detector returned an unexpected identity.",
                 )
+            height, width = image.shape[:2]
             return self._revisions.create(
                 actor_id=actor_id,
                 role=role,
                 detector_id=detector.detector_id,
                 content_sha256=content_sha256,
-                width=validated.width,
-                height=validated.height,
+                width=width,
+                height=height,
                 faces=faces,
             )
         finally:
@@ -385,12 +384,6 @@ def _file_sha256(path: Path) -> str:
         while chunk := source.read(64 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _decode_bgr(path: Path) -> np.ndarray:
-    with Image.open(path) as image:
-        rgb = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    return np.ascontiguousarray(rgb[:, :, ::-1])
 
 
 def _utc_now() -> datetime:
