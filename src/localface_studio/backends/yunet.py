@@ -9,6 +9,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from localface_studio.application.face_detection import FaceImage
+from localface_studio.backends.face_detection_common import (
+    FaceDetectionError,
+    validate_face_image,
+)
 from localface_studio.domain.faces import (
     DetectedFace,
     FaceBox,
@@ -23,14 +27,6 @@ from localface_studio.infrastructure.model_manifest import (
 )
 
 YUNET_MODEL_ID = "yunet-opencv"
-
-
-class FaceDetectionError(RuntimeError):
-    """Expected detector failure with a stable non-sensitive error code."""
-
-    def __init__(self, code: str) -> None:
-        super().__init__(code)
-        self.code = code
 
 
 class _YuNetEngine(Protocol):
@@ -110,7 +106,7 @@ class YuNetFaceDetector:
 
     def detect(self, image: FaceImage) -> tuple[DetectedFace, ...]:
         """Run YuNet without retaining pixels or detector output after return."""
-        height, width = _validate_image(image)
+        height, width = validate_face_image(image)
         inference_image, scale = _prepare_inference_image(
             image,
             maximum_input_edge=self._maximum_input_edge,
@@ -133,17 +129,6 @@ class YuNetFaceDetector:
             if existing is None or face.confidence > existing.confidence:
                 faces_by_id[face.detection_id] = face
         return tuple(sorted(faces_by_id.values(), key=face_display_order))
-
-
-def _validate_image(image: FaceImage) -> tuple[int, int]:
-    if not isinstance(image, np.ndarray):
-        raise FaceDetectionError("face_detection_image_invalid")
-    if image.dtype != np.uint8 or image.ndim != 3 or image.shape[2] != 3:
-        raise FaceDetectionError("face_detection_image_invalid")
-    height, width = image.shape[:2]
-    if height < 1 or width < 1:
-        raise FaceDetectionError("face_detection_image_invalid")
-    return height, width
 
 
 def _prepare_inference_image(

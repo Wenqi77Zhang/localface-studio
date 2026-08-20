@@ -90,6 +90,8 @@ InsightFace 官方明确区分：源代码采用 MIT；官方提供或自动下�
 - https://github.com/deepinsight/insightface
 - https://github.com/deepinsight/insightface/blob/master/python-package/README.md#license
 
+当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有后端强制门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace、ONNX Runtime 与 SCRFD 权重均尚未安装或登记到生产模型清单，因此网页选项继续保持不可用。
+
 ### SimSwap 的关键限制
 
 SimSwap 官方项目采用 CC BY-NC 4.0，并明确限定学术和非商业用途。它不能作为满足未来商业目标的替代方案。

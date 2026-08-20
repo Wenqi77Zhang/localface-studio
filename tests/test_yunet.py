@@ -9,7 +9,8 @@ import pytest
 from numpy.typing import NDArray
 
 from localface_studio.backends import yunet
-from localface_studio.backends.yunet import FaceDetectionError, YuNetFaceDetector
+from localface_studio.backends.face_detection_common import FaceDetectionError
+from localface_studio.backends.yunet import YuNetFaceDetector
 from localface_studio.infrastructure.model_manifest import ModelManifestError
 
 
