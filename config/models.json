@@ -22,6 +22,33 @@
         "verified_python_version": "3.14.6",
         "initial_device": "cpu"
       }
+    },
+    {
+      "id": "scrfd-insightface-research",
+      "role": "face_detector",
+      "version": "buffalo_m-v0.7-20260312",
+      "filename": "det_2.5g.onnx",
+      "relative_path": "models/detectors/scrfd/det_2.5g.onnx",
+      "source_url": "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_m.zip",
+      "source_repository": "https://github.com/deepinsight/insightface",
+      "source_archive_entry": "buffalo_m/det_2.5g.onnx",
+      "source_archive_sha256": "d98264bd8f2dc75cbc2ddce2a14e636e02bb857b3051c234b737bf3b614edca9",
+      "source_archive_size_bytes": 275951529,
+      "license": "InsightFace pretrained model - non-commercial research only",
+      "license_url": "https://github.com/deepinsight/insightface/blob/master/python-package/README.md#license",
+      "sha256": "041f73f47371333d1d17a6fee6c8ab4e6aecabefe398ff32cca4e2d5eaee0af9",
+      "size_bytes": 3292009,
+      "distribution": "download-separately",
+      "commercial_mode_allowed": false,
+      "runtime": {
+        "adapter": "insightface-scrfd",
+        "package": "insightface",
+        "verified_package_version": "1.0.1",
+        "verified_onnxruntime_version": "1.29.0",
+        "verified_python_version": "3.14.6",
+        "initial_device": "cpu",
+        "input_sizes": [[128, 128], [640, 640]]
+      }
     }
   ]
 }

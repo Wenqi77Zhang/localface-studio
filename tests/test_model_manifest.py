@@ -13,6 +13,8 @@ from localface_studio.infrastructure.model_manifest import (
     verify_model_artifact,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 def write_manifest(
     root: Path,
@@ -50,6 +52,21 @@ def test_manifest_resolves_verified_model_inside_project(tmp_path: Path) -> None
 
     assert artifact.role == "face_detector"
     assert verify_model_artifact(artifact, tmp_path) == tmp_path / "models/model.onnx"
+
+
+def test_public_catalog_registers_research_scrfd_without_commercial_permission() -> None:
+    artifact = load_model_artifact(
+        PROJECT_ROOT / "config/models.json",
+        "scrfd-insightface-research",
+    )
+
+    assert artifact.role == "face_detector"
+    assert artifact.version == "buffalo_m-v0.7-20260312"
+    assert artifact.filename == "det_2.5g.onnx"
+    assert artifact.relative_path == Path("models/detectors/scrfd/det_2.5g.onnx")
+    assert artifact.sha256 == "041f73f47371333d1d17a6fee6c8ab4e6aecabefe398ff32cca4e2d5eaee0af9"
+    assert artifact.size_bytes == 3292009
+    assert artifact.commercial_mode_allowed is False
 
 
 def test_model_hash_mismatch_fails_without_exposing_local_path(tmp_path: Path) -> None:
