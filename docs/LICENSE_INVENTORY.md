@@ -60,6 +60,7 @@
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
 | Python 图片与上传依赖 | Pillow 12.3.0（MIT-CMU）、python-multipart 0.0.32（Apache-2.0） | 绿色；仅用于本地图片解码校验与 multipart 上传解析，发布时保留许可证文本。 |
 | Python 人脸检测候选依赖 | opencv-python-headless 5.0.0.93（Apache-2.0）、NumPy 2.5.1（BSD-3-Clause） | 绿色；已在 Python 3.14.6、Windows 环境完成导入、模型加载和无脸图 CPU 推理检查。 |
+| Python SCRFD 研究可选依赖 | InsightFace 1.0.1（代码 MIT）、ONNX Runtime 1.29.0（MIT） | 黄色；以 `scrfd-research` 可选依赖锁定，不随默认安装启用。InsightFace 官方预训练权重仍为红色资产。为避免共享 `cv2` 文件冲突，uv 明确排除其传递依赖 `opencv-python`，继续使用项目既有的 `opencv-python-headless`。 |
 | Python 元数据缺失项 | annotated-types 0.7.0、colorama 0.4.6 的已安装元数据未提供标准许可证表达式 | 待人工复核；不得因为元数据为空而推断为无许可证或自动归类为 MIT。 |
 | 前端直接运行依赖 | React 19.2.8、React DOM 19.2.8（MIT） | 绿色。 |
 | 前端直接开发依赖 | TypeScript 6.0.3（Apache-2.0）、Vite 8.1.5、OxcLint 1.75.0、React 插件与类型包（MIT） | 绿色；仅用于构建和检查。 |
@@ -90,7 +91,7 @@ InsightFace 官方明确区分：源代码采用 MIT；官方提供或自动下�
 - https://github.com/deepinsight/insightface
 - https://github.com/deepinsight/insightface/blob/master/python-package/README.md#license
 
-当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有后端强制门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace、ONNX Runtime 与 SCRFD 权重均尚未安装或登记到生产模型清单，因此网页选项继续保持不可用。
+当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有后端强制门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace 与 ONNX Runtime 已作为研究用途可选依赖锁定并完成本地 CPU 导入验证；SCRFD 权重仍未下载或登记到生产模型清单，因此网页选项继续保持不可用。
 
 ### SimSwap 的关键限制
 

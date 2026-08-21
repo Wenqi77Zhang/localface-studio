@@ -16,9 +16,18 @@ dependencies = [
     "uvicorn>=0.51.0",
 ]
 
+[project.optional-dependencies]
+scrfd-research = [
+    "insightface==1.0.1",
+    "onnxruntime==1.29.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+exclude-dependencies = ["opencv-python"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/localface_studio"]
