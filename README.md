@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 9 Windows 一键运行、诊断和交付文档已完成；默认启动路径在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 10 正在完成 GitHub 发布准备和视频扩展接口冻结。
+当前状态：阶段 0–10 的候选版工程工作已完成，版本为 `1.0.0rc1`；等待产品负责人集中视觉验收和独立干净 Windows 复现后，才允许创建稳定 `v1.0.0` 标签。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -46,6 +46,11 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 - [阶段 7 进展日志](docs/progress/phase-07.md)
 - [阶段 8 进展日志](docs/progress/phase-08.md)
 - [阶段 9 进展日志](docs/progress/phase-09.md)
+- [阶段 10 进展日志](docs/progress/phase-10.md)
+- [v1 最终集中验收清单](docs/FINAL_ACCEPTANCE.md)
+- [候选版说明](docs/releases/v1.0.0-rc1.md)
+- [发布、更新与回滚流程](docs/RELEASE_PROCESS.md)
+- [视频扩展接口冻结](docs/VIDEO_EXTENSION_CONTRACT.md)
 - [用户手册](docs/USER_GUIDE.md)
 - [第三方组件声明](docs/licenses/THIRD_PARTY_NOTICES.md)
 - [Windows 可复现性实测](docs/REPRODUCIBILITY_REPORT.md)
@@ -56,4 +61,4 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 ## 当前阶段
 
-阶段 0–2 已形成完整的本地产品与模拟回归闭环；阶段 3 已实现 YuNet 默认检测、SCRFD 非商业研究选项、多脸稳定编号与单人选择，并完成同一冻结集的本地对比。阶段 4 已接入受双重许可证门禁保护的 ArcFace 与 InSwapper 真实后端，完成选中人物恢复、CUDA 实际推理验证、显式 CPU 降级、结果检查和完整 API 演练。阶段 5 新增可审计的身份优先与平衡质量预设。阶段 6 完成 7 组真实样例、14 次换脸的身份、几何、背景保护、色彩和性能基线，并如实记录自动指标无法识别的明显伪影。所有研究权重、测试人物图片、评测明细与生成结果始终由 Git 隔离。
+阶段 0–10 已形成完整的本地单张照片候选产品、真实研究后端、质量基线、隐私安全验收、可选 ComfyUI 适配、Windows 交付链和公开仓库治理。阶段 6 的 7 组真实样例中有 2 组明显伪影，因此候选版不会用自动分数冒充美学合格。视频仅冻结 v2 接口，尚未实现。所有研究权重、测试人物图片、评测明细与生成结果始终由 Git 隔离。

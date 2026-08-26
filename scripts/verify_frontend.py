@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import threading
 import time
@@ -27,10 +28,10 @@ def main() -> None:
     proxied_health_url = f"{frontend_url}api/v1/health"
     os.environ["LOCALFACE_PORT"] = str(args.backend_port)
     os.environ["LOCALFACE_FRONTEND_PORT"] = str(args.frontend_port)
-    node = ROOT / ".tools" / "node" / "node.exe"
+    node = resolve_node()
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
-    if not node.is_file() or not vite.is_file():
-        raise RuntimeError("Project-local Node.js or Vite is missing. Run npm install first.")
+    if not vite.is_file():
+        raise RuntimeError("Vite is missing. Run setup.cmd or npm install first.")
 
     backend = uvicorn.Server(
         uvicorn.Config(
@@ -47,7 +48,7 @@ def main() -> None:
     environment["LOCALFACE_API_TARGET"] = f"http://{HOST}:{args.backend_port}"
     frontend = subprocess.Popen(
         [
-            str(node),
+            node,
             str(vite),
             "--host",
             HOST,
@@ -107,6 +108,17 @@ def clean_windows_environment() -> dict[str, str]:
             clean[key] = value
             seen.add(normalized)
     return clean
+
+
+def resolve_node() -> str:
+    """Prefer the isolated runtime and allow the CI-provided Node.js fallback."""
+    local_node = ROOT / ".tools" / "node" / "node.exe"
+    if local_node.is_file():
+        return str(local_node)
+    system_node = shutil.which("node")
+    if system_node is None:
+        raise RuntimeError("Node.js is unavailable. Run setup.cmd first.")
+    return system_node
 
 
 def wait_for_text(url: str) -> str:

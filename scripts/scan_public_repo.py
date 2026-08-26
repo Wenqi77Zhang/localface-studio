@@ -9,14 +9,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAX_FILE_SIZE = 2 * 1024 * 1024
 FORBIDDEN_SUFFIXES = {
+    ".7z",
     ".bin",
+    ".bmp",
     ".ckpt",
     ".engine",
+    ".gif",
+    ".jpeg",
+    ".jpg",
     ".onnx",
     ".pdf",
+    ".png",
     ".pt",
     ".pth",
+    ".rar",
     ".safetensors",
+    ".webp",
+    ".zip",
 }
 TEXT_SUFFIXES = {
     "",
@@ -42,6 +51,7 @@ SENSITIVE_PATTERNS = {
     "GitHub token": re.compile(r"\b(?:ghp|github_pat)_[A-Za-z0-9_]+\b"),
     "AWS access key": re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
 }
+AUDITED_SYNTHETIC_ASSET_PREFIX = Path("benchmarks/face_detection/public/assets")
 
 
 def main() -> None:
@@ -51,7 +61,7 @@ def main() -> None:
         path = ROOT / relative_path
         if not path.is_file():
             continue
-        if path.suffix.lower() in FORBIDDEN_SUFFIXES:
+        if path.suffix.lower() in FORBIDDEN_SUFFIXES and not _is_audited_synthetic(path):
             failures.append(f"{relative_path}: prohibited asset type")
             continue
         if path.stat().st_size > MAX_FILE_SIZE:
@@ -66,6 +76,10 @@ def main() -> None:
     if failures:
         raise SystemExit("Public repository scan failed:\n" + "\n".join(sorted(failures)))
     print("Public repository scan: OK")
+
+
+def _is_audited_synthetic(path: Path) -> bool:
+    return path.relative_to(ROOT).is_relative_to(AUDITED_SYNTHETIC_ASSET_PREFIX)
 
 
 def tracked_files() -> list[Path]:

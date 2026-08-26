@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
 import time
 import webbrowser
@@ -21,9 +22,9 @@ def main() -> None:
     backend_url = f"http://{HOST}:{args.backend_port}/api/v1/health"
     frontend_url = f"http://{HOST}:{args.frontend_port}/"
     python = ROOT / ".venv" / "Scripts" / "python.exe"
-    node = ROOT / ".tools" / "node" / "node.exe"
+    node = resolve_node()
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
-    for required in (python, node, vite):
+    for required in (python, vite):
         if not required.is_file():
             raise RuntimeError(f"Required local tool is missing: {required.relative_to(ROOT)}")
 
@@ -49,7 +50,7 @@ def main() -> None:
     )
     frontend = subprocess.Popen(
         [
-            str(node),
+            node,
             str(vite),
             "--host",
             HOST,
@@ -100,6 +101,17 @@ def clean_windows_environment() -> dict[str, str]:
             clean[key] = value
             seen.add(normalized)
     return clean
+
+
+def resolve_node() -> str:
+    """Prefer the isolated runtime and allow the CI-provided Node.js fallback."""
+    local_node = ROOT / ".tools" / "node" / "node.exe"
+    if local_node.is_file():
+        return str(local_node)
+    system_node = shutil.which("node")
+    if system_node is None:
+        raise RuntimeError("Node.js is unavailable. Run setup.cmd first.")
+    return system_node
 
 
 def wait_until_ready(

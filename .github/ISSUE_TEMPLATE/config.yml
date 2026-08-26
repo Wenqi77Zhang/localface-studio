@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/Wenqi77Zhang/localface-studio/security/advisories/new
+    about: Privately report a vulnerability; never attach private face data.

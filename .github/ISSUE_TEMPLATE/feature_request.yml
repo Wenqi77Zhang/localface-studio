@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a scoped, privacy-preserving improvement
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user problem without attaching private face data.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: privacy_license
+    attributes:
+      label: Privacy and license impact
+      description: Identify new data retention, network, model, training-data, or distribution implications.
+    validations:
+      required: true

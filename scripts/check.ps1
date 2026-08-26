@@ -34,6 +34,7 @@ Invoke-Checked $Ruff format --check src tests scripts
 Invoke-Checked $Mypy src scripts tests
 Invoke-Checked $Pytest -q "--basetemp=$PytestBaseTemp" --cov --cov-report=term-missing
 Invoke-Checked $Python scripts\scan_public_repo.py
+Invoke-Checked $Python scripts\scan_git_history.py
 Invoke-Checked $Python scripts\verify_backend.py
 & git -c "safe.directory=$SafeRoot" diff --check
 if ($LASTEXITCODE -ne 0) {
@@ -46,9 +47,15 @@ if ($LASTEXITCODE -ne 0) {
 
 if (-not $SkipFrontend) {
     if (-not (Test-Path $Npm)) {
-        throw "Project-local Node.js is missing at .tools/node."
+        $NpmCommand = Get-Command "npm.cmd" -ErrorAction SilentlyContinue
+        if ($null -eq $NpmCommand) {
+            throw "Node.js is unavailable. Run setup.cmd or install the CI Node.js runtime."
+        }
+        $Npm = $NpmCommand.Source
     }
-    $env:Path = "$NodeDir;$env:Path"
+    else {
+        $env:Path = "$NodeDir;$env:Path"
+    }
     Set-Location (Join-Path $Root "frontend")
     Invoke-Checked $Npm run check
     Set-Location $Root
