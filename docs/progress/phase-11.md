@@ -11,6 +11,7 @@
 - 将页面陈旧的“阶段 4”标识更新为 `v1 候选版`，任务结束后自动刷新真实运行能力。
 - 完成 npm 生产依赖与 Python 当前环境漏洞审计，均未发现已知漏洞。
 - 增加 Dependabot 与 CodeQL，覆盖 uv、npm、GitHub Actions、Python 和 TypeScript。
+- Dependabot 仅按生态合并创建 minor/patch 建议并忽略 major 自动升级，避免一次产生大量高风险更新。
 - 完成成熟度审计、公网部署门禁和独立安全边界 ADR。
 
 ## 关键边界
