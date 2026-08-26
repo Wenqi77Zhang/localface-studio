@@ -34,4 +34,14 @@ jobs:
         run: npm ci
       - name: Run public-repository quality gates
         shell: pwsh
-        run: ./scripts/check.ps1
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "localface-quality.log"
+          & pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1 *>&1 |
+            Tee-Object -FilePath $log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $tail = (Get-Content $log -Tail 30) -join " | "
+            $tail = $tail.Replace("%", "%25").Replace("`r", "%0D").Replace("`n", "%0A")
+            Write-Output "::error title=LocalFace quality gate failed::$tail"
+            exit $exitCode
+          }
