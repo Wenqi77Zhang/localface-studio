@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 6 真实质量、性能与稳定性基线已完成；默认启动路径可在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 7 正在进行隐私与安全加固。
+当前状态：阶段 7 隐私、水印与安全验收已完成；默认启动路径可在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 8 正在实现默认关闭的可选 ComfyUI 适配器。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -43,7 +43,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 - [阶段 4 进展日志](docs/progress/phase-04.md)
 - [阶段 5 进展日志](docs/progress/phase-05.md)
 - [阶段 6 进展日志](docs/progress/phase-06.md)
+- [阶段 7 进展日志](docs/progress/phase-07.md)
 - [真实换脸质量基线](docs/benchmarking/FACE_SWAP_QUALITY_BASELINE.md)
+- [阶段 7 安全验收](docs/security/PHASE_07_SECURITY_ACCEPTANCE.md)
 - [旧项目脱敏复盘](docs/research/LEGACY_PROJECT_REVIEW.md)
 
 ## 当前阶段

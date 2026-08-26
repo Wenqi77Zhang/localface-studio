@@ -45,6 +45,15 @@ class TaskWorkspaceStore:
         if workspace.exists():
             shutil.rmtree(workspace)
 
+    def remove_inputs(self, task_id: str) -> None:
+        """Remove uploaded originals while preserving a successfully exported result."""
+        workspace = self._workspace(task_id)
+        for role in ImageRole:
+            for suffix in (*_INPUT_SUFFIXES, "part"):
+                candidate = workspace / f"{role.value}.{suffix}"
+                if candidate.exists():
+                    candidate.unlink()
+
     def input_path(self, task_id: str, role: ImageRole) -> Path:
         """Resolve one canonical input without accepting a caller-controlled path."""
         workspace = self._workspace(task_id)

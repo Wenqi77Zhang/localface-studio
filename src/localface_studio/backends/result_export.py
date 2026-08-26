@@ -11,6 +11,26 @@ from localface_studio.domain.tasks import OutputFormat
 
 AI_WATERMARK = "AI EDITED - LocalFace Studio"
 METADATA_KEY = "LocalFaceStudio"
+SAFE_METADATA_KEYS = frozenset(
+    {
+        "ai_edited",
+        "app",
+        "app_version",
+        "backend",
+        "created_at",
+        "detector_id",
+        "execution_providers",
+        "jpeg_quality",
+        "quality_preset",
+        "simulation",
+        "statement",
+        "swap_model_id",
+        "visible_watermark",
+    }
+)
+REQUIRED_METADATA_KEYS = frozenset(
+    {"ai_edited", "app", "app_version", "backend", "created_at", "simulation", "visible_watermark"}
+)
 
 
 def draw_ai_watermark(image: Image.Image) -> None:
@@ -42,6 +62,7 @@ def save_result(
     jpeg_quality: int,
 ) -> None:
     """Encode a result with metadata in PNG text or JPEG EXIF."""
+    _validate_metadata(metadata)
     if output_format is OutputFormat.PNG:
         serialized = json.dumps(metadata, ensure_ascii=False, separators=(",", ":"))
         png_info = PngImagePlugin.PngInfo()
@@ -68,6 +89,15 @@ def read_result_metadata(image: Image.Image, output_format: OutputFormat) -> dic
     if not isinstance(value, dict):
         raise ValueError("result metadata is not an object")
     return value
+
+
+def _validate_metadata(metadata: dict[str, object]) -> None:
+    unknown = metadata.keys() - SAFE_METADATA_KEYS
+    missing = REQUIRED_METADATA_KEYS - metadata.keys()
+    if unknown or missing:
+        raise ValueError("result metadata does not match the privacy-safe schema")
+    if metadata.get("ai_edited") is not True or metadata.get("app") != "LocalFace Studio":
+        raise ValueError("result metadata disclosure is invalid")
 
 
 def _font_candidates() -> Iterable[Path]:

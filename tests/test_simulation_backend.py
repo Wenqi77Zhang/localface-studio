@@ -7,8 +7,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from localface_studio.backends.result_export import METADATA_KEY
 from localface_studio.backends.simulation import (
-    METADATA_KEY,
     SIMULATION_STATEMENT,
     SimulationBackend,
 )

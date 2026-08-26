@@ -104,6 +104,14 @@ def test_mutation_requires_allowed_origin_session_and_csrf() -> None:
         assert missing_csrf.status_code == 403
         assert accepted.status_code == 200
         assert accepted.json() == {"ok": True}
+        assert accepted.headers["cache-control"] == "no-store"
+        assert accepted.headers["x-content-type-options"] == "nosniff"
+        assert accepted.headers["x-frame-options"] == "DENY"
+        assert accepted.headers["referrer-policy"] == "no-referrer"
+        assert accepted.headers["permissions-policy"] == (
+            "camera=(), microphone=(), geolocation=()"
+        )
+        assert accepted.headers["cross-origin-resource-policy"] == "same-origin"
 
     asyncio.run(scenario())
 

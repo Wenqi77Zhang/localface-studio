@@ -122,3 +122,16 @@ def test_periodic_cleanup_expires_due_result_and_stops_promptly(tmp_path: Path) 
         assert workspaces.list_task_ids() == ()
 
     asyncio.run(scenario())
+
+
+def test_success_cleanup_preserves_only_result(tmp_path: Path) -> None:
+    workspaces = TaskWorkspaceStore(tmp_path / "tasks")
+    identifier = task_id("success-assets")
+    workspace = workspaces.create(identifier)
+    (workspace / "source.png").write_bytes(b"source")
+    (workspace / "target.jpg").write_bytes(b"target")
+    (workspace / "result.png").write_bytes(b"result")
+
+    workspaces.remove_inputs(identifier)
+
+    assert [path.name for path in workspace.iterdir()] == ["result.png"]

@@ -125,6 +125,7 @@ def create_app(
         backend,
         events,
         workspace_store.remove,
+        success_cleanup=workspace_store.remove_inputs,
         timeout_seconds=runtime_settings.task_timeout_seconds,
     )
     cleanup = TaskCleanupService(repository, workspace_store)
@@ -183,9 +184,14 @@ def create_app(
             rejection = reject_invalid_task_upload_request(request)
         if rejection is None:
             rejection = reject_invalid_csrf(request, application.state.sessions)
-        if rejection is not None:
-            return rejection
-        return await call_next(request)
+        response = rejection if rejection is not None else await call_next(request)
+        response.headers["Cache-Control"] = response.headers.get("Cache-Control", "no-store")
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        return response
 
     @application.middleware("http")
     async def privacy_safe_request_log(request: Request, call_next):  # type: ignore[no-untyped-def]

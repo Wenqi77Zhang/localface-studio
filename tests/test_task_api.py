@@ -145,7 +145,9 @@ async def establish_session(client: httpx.AsyncClient) -> str:
     return str(response.json()["csrf_token"])
 
 
-def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: Path) -> None:
+def test_task_creation_persists_minimal_metadata_and_only_canonical_result(
+    tmp_path: Path,
+) -> None:
     async def scenario() -> None:
         app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
         async with running_client(app) as client:
@@ -193,11 +195,7 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
             hours=24
         )
         workspace = tmp_path / "runtime" / "tasks" / payload["task_id"]
-        assert {path.name for path in workspace.iterdir()} == {
-            "source.png",
-            "target.png",
-            "result.jpg",
-        }
+        assert {path.name for path in workspace.iterdir()} == {"result.jpg"}
 
     asyncio.run(scenario())
 

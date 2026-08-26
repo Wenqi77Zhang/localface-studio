@@ -1,28 +1,30 @@
 """Honest no-model backend used to validate the product workflow."""
 
 import asyncio
-import json
 import os
 from collections.abc import Callable, Iterable
 from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, PngImagePlugin, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 from localface_studio import __version__
 from localface_studio.application.task_queue import (
     NodeReporter,
     WorkflowExecutionError,
 )
+from localface_studio.backends.result_export import (
+    read_result_metadata,
+    save_result,
+)
 from localface_studio.domain.images import ImageRole
-from localface_studio.domain.tasks import OutputFormat, TaskRecord, WorkflowNode
+from localface_studio.domain.tasks import TaskRecord, WorkflowNode
 from localface_studio.infrastructure.task_workspaces import TaskWorkspaceStore
 
 SIMULATION_STATEMENT = "SIMULATION—非真实换脸结果"
 SIMULATION_BANNER_FALLBACK = "SIMULATION - NOT A FACE SWAP"
 AI_WATERMARK = "AI EDITED - LocalFace Studio"
-METADATA_KEY = "LocalFaceStudio"
 
 
 class SimulationBackend:
@@ -81,7 +83,7 @@ class SimulationBackend:
         if staging_path.exists():
             staging_path.unlink()
         try:
-            self._save(
+            save_result(
                 result,
                 staging_path,
                 task.output_format,
@@ -131,34 +133,6 @@ class SimulationBackend:
             "quality_preset": task.quality_preset.value,
         }
 
-    @staticmethod
-    def _save(
-        image: Image.Image,
-        destination: Path,
-        output_format: OutputFormat,
-        metadata: dict[str, object],
-        *,
-        jpeg_quality: int,
-    ) -> None:
-        if output_format is OutputFormat.PNG:
-            serialized = json.dumps(metadata, ensure_ascii=False, separators=(",", ":"))
-            png_info = PngImagePlugin.PngInfo()
-            png_info.add_text(METADATA_KEY, serialized)
-            image.save(destination, format="PNG", pnginfo=png_info)
-            return
-        # EXIF ImageDescription is commonly constrained to ASCII. JSON Unicode
-        # escapes preserve the original statement without lossy substitution.
-        serialized = json.dumps(metadata, ensure_ascii=True, separators=(",", ":"))
-        exif = Image.Exif()
-        exif[270] = serialized
-        exif[305] = "LocalFace Studio"
-        image.convert("RGB").save(
-            destination,
-            format="JPEG",
-            quality=jpeg_quality,
-            exif=exif,
-        )
-
     def _inspect(self, task: TaskRecord, target_path: Path) -> None:
         result_path = self._workspaces.result_path(task.task_id, task.output_format)
         with Image.open(target_path) as target:
@@ -167,7 +141,7 @@ class SimulationBackend:
             result.load()
             if result.size != target_size:
                 raise ValueError("simulation output dimensions changed")
-            metadata = _read_metadata(result, task.output_format)
+            metadata = read_result_metadata(result, task.output_format)
         if metadata.get("simulation") is not True or metadata.get("ai_edited") is not True:
             raise ValueError("required simulation metadata is missing")
 
@@ -188,17 +162,3 @@ def _load_disclosure_font(size: int) -> tuple[ImageFont.FreeTypeFont | ImageFont
             except OSError:
                 continue
     return ImageFont.load_default(size=size), False
-
-
-def _read_metadata(image: Image.Image, output_format: OutputFormat) -> dict[str, object]:
-    raw = (
-        image.info.get(METADATA_KEY)
-        if output_format is OutputFormat.PNG
-        else image.getexif().get(270)
-    )
-    if not isinstance(raw, str):
-        raise ValueError("result metadata is absent")
-    value = json.loads(raw)
-    if not isinstance(value, dict):
-        raise ValueError("result metadata is not an object")
-    return value

@@ -83,7 +83,14 @@ def test_queue_runs_tasks_one_at_a_time_and_publishes_ordered_events(tmp_path: P
         repository.create(second)
         backend = TrackingBackend()
         events = TaskEventBroker()
-        queue = SingleTaskQueue(repository, backend, events, lambda task_id: None)
+        success_cleaned: list[str] = []
+        queue = SingleTaskQueue(
+            repository,
+            backend,
+            events,
+            lambda task_id: None,
+            success_cleanup=success_cleaned.append,
+        )
 
         queue.start()
         await queue.enqueue(first)
@@ -95,6 +102,7 @@ def test_queue_runs_tasks_one_at_a_time_and_publishes_ordered_events(tmp_path: P
         assert first_result is not None and first_result.status is TaskStatus.SUCCEEDED
         assert second_result is not None and second_result.status is TaskStatus.SUCCEEDED
         assert backend.maximum_active == 1
+        assert success_cleaned == ["first-task", "second-task"]
         first_history = events.history(first.task_id)
         assert [event.version for event in first_history] == list(
             range(first_history[-1].version + 1)

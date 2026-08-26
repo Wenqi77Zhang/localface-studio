@@ -131,6 +131,7 @@ class SingleTaskQueue:
         events: TaskEventBroker,
         cleanup: Callable[[str], None],
         *,
+        success_cleanup: Callable[[str], None] | None = None,
         timeout_seconds: float = 120,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
@@ -140,6 +141,7 @@ class SingleTaskQueue:
         self._backend = backend
         self._events = events
         self._cleanup = cleanup
+        self._success_cleanup = success_cleanup or (lambda _: None)
         self._timeout_seconds = timeout_seconds
         self._clock = clock
         self._items: asyncio.Queue[QueueItem | None] = asyncio.Queue()
@@ -230,6 +232,7 @@ class SingleTaskQueue:
                 final_status = TaskStatus.TIMED_OUT
             else:
                 await runner
+                await self._cleanup_with_retry(item.task_id, self._success_cleanup)
         except WorkflowExecutionError as error:
             final_status = TaskStatus.FAILED
             error_code = error.error_code
@@ -257,12 +260,16 @@ class SingleTaskQueue:
         self._repository.save(finished, expected_version=current.version)
         self._events.publish(finished)
         if final_status is not TaskStatus.SUCCEEDED:
-            await self._cleanup_with_retry(item.task_id)
+            await self._cleanup_with_retry(item.task_id, self._cleanup)
 
-    async def _cleanup_with_retry(self, task_id: str) -> None:
+    async def _cleanup_with_retry(
+        self,
+        task_id: str,
+        callback: Callable[[str], None],
+    ) -> None:
         for attempt in range(_CLEANUP_ATTEMPTS):
             try:
-                self._cleanup(task_id)
+                callback(task_id)
                 return
             except OSError:
                 if attempt == _CLEANUP_ATTEMPTS - 1:

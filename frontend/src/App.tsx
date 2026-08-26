@@ -734,9 +734,18 @@ function App() {
                   type="checkbox"
                   checked={watermarkEnabled}
                   disabled={submitting || taskInProgress}
-                  onChange={(event) =>
-                    setWatermarkEnabled(event.currentTarget.checked)
-                  }
+                  onChange={(event) => {
+                    const enabled = event.currentTarget.checked
+                    if (
+                      !enabled &&
+                      !window.confirm(
+                        '关闭可见水印会降低 AI 编辑结果的可识别性。文件元数据仍会保留 AI 编辑声明。确认关闭吗？',
+                      )
+                    ) {
+                      return
+                    }
+                    setWatermarkEnabled(enabled)
+                  }}
                 />
                 <span>显示 AI 编辑水印</span>
               </label>
