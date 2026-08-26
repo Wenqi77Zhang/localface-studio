@@ -48,6 +48,8 @@ export default function LocalResultGallery({
   const [confirmTarget, setConfirmTarget] = useState<'all' | string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const previewTriggerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!enabled) {
@@ -114,12 +116,32 @@ export default function LocalResultGallery({
       if (event.key === 'Escape') {
         setSelected(null)
         setConfirmTarget(null)
+        return
+      }
+      if (event.key !== 'Tab') {
+        return
+      }
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusable === undefined || focusable.length === 0) {
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
       }
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', closeOnEscape)
+      previewTriggerRef.current?.focus()
     }
   }, [selected])
 
@@ -139,6 +161,11 @@ export default function LocalResultGallery({
   function closePreview() {
     setSelected(null)
     setConfirmTarget(null)
+  }
+
+  function openPreview(result: AvailableResult) {
+    previewTriggerRef.current = document.activeElement as HTMLElement | null
+    setSelected(result)
   }
 
   async function clearResults(taskIds: string[]) {
@@ -246,7 +273,7 @@ export default function LocalResultGallery({
                   className="local-result-card__preview"
                   type="button"
                   aria-label={`放大查看 ${formattedCompletionTime(result.completedAt)} 生成的结果`}
-                  onClick={() => setSelected(result)}
+                  onClick={() => openPreview(result)}
                 >
                   <img
                     src={taskResultUrl(result.taskId)}
@@ -280,6 +307,7 @@ export default function LocalResultGallery({
             }}
           >
             <section
+              ref={dialogRef}
               className="result-lightbox__dialog"
               role="dialog"
               aria-modal="true"

@@ -15,5 +15,6 @@ All notable project changes are recorded here. The project follows semantic vers
 - Added restart-safe, bounded 24-hour local browser sessions while storing only cookie digests.
 - Added actionable backend readiness states and automatic runtime-status refresh after tasks.
 - Added Dependabot, CodeQL, dependency audits and an explicit public-production safety gate.
+- Added geometry-based quality advisories, a full-screen manual inspection flow and keyboard-safe modal focus handling without claiming automatic aesthetic approval.
 
 The stable `v1.0.0` tag remains blocked on final product-owner visual acceptance and independent clean-Windows reproduction.

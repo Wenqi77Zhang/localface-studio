@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ResultPreviewProps {
   error: string | null
@@ -31,7 +32,11 @@ function ResultPreview({
     DEFAULT_COMPARISON_POSITION,
   )
   const [originalUrl, setOriginalUrl] = useState<string | null>(null)
+  const [inspectionOpen, setInspectionOpen] = useState(false)
   const comparisonRef = useRef<HTMLDivElement>(null)
+  const inspectionButtonRef = useRef<HTMLButtonElement>(null)
+  const inspectionDialogRef = useRef<HTMLElement>(null)
+  const inspectionCloseRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(originalFile)
@@ -39,6 +44,50 @@ function ResultPreview({
     setComparisonPosition(DEFAULT_COMPARISON_POSITION)
     return () => URL.revokeObjectURL(objectUrl)
   }, [originalFile])
+
+  useEffect(() => {
+    if (!inspectionOpen) {
+      return
+    }
+    const inspectionTrigger = inspectionButtonRef.current
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    inspectionCloseRef.current?.focus()
+    const handleKeyboard = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setInspectionOpen(false)
+        return
+      }
+      if (event.key !== 'Tab') {
+        return
+      }
+      const focusable = inspectionDialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusable === undefined || focusable.length === 0) {
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyboard)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleKeyboard)
+      inspectionTrigger?.focus()
+    }
+  }, [inspectionOpen])
+
+  useEffect(() => {
+    setInspectionOpen(false)
+  }, [previewUrl])
 
   function updateComparisonPosition(clientX: number) {
     const bounds = comparisonRef.current?.getBoundingClientRect()
@@ -96,13 +145,23 @@ function ResultPreview({
           <h3 id="result-preview-title">处理前后结果对比</h3>
         </div>
         {previewUrl !== null && (
-          <a
-            className="result-download"
-            href={previewUrl}
-            download={`localface-simulation.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`}
-          >
-            下载{outputFormat === 'jpeg' ? ' JPEG' : ' PNG'}结果
-          </a>
+          <div className="result-preview__actions">
+            <button
+              ref={inspectionButtonRef}
+              className="result-inspect"
+              type="button"
+              onClick={() => setInspectionOpen(true)}
+            >
+              放大质检
+            </button>
+            <a
+              className="result-download"
+              href={previewUrl}
+              download={`localface-simulation.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`}
+            >
+              下载{outputFormat === 'jpeg' ? ' JPEG' : ' PNG'}结果
+            </a>
+          </div>
         )}
       </div>
 
@@ -165,9 +224,73 @@ function ResultPreview({
         拖动分割线查看细节；聚焦对比区域后，也可使用方向键、Home 或 End 调整。
       </p>
       <p className="result-preview__notice">
-        自动检查无法保证没有视觉伪影。下载前请放大检查眼睛、牙齿、发际线与脸部轮廓；AI
+        自动指标不能可靠识别重影或纹理破碎。下载前请使用“放大质检”检查眼睛、牙齿、发际线与脸部轮廓；AI
         编辑元数据始终保留。
       </p>
+
+      {inspectionOpen && previewUrl !== null &&
+        createPortal(
+          <div
+            className="inspection-lightbox"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setInspectionOpen(false)
+              }
+            }}
+          >
+            <section
+              ref={inspectionDialogRef}
+              className="inspection-lightbox__dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="inspection-title"
+              aria-describedby="inspection-guidance"
+            >
+              <header className="inspection-lightbox__header">
+                <div>
+                  <span className="eyebrow">Manual quality gate</span>
+                  <h4 id="inspection-title">结果放大质检</h4>
+                </div>
+                <button
+                  ref={inspectionCloseRef}
+                  className="result-lightbox__close"
+                  type="button"
+                  aria-label="关闭放大质检"
+                  onClick={() => setInspectionOpen(false)}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="inspection-lightbox__image">
+                <img src={previewUrl} alt="等待人工放大检查的处理结果" />
+              </div>
+              <div className="inspection-lightbox__footer">
+                <p id="inspection-guidance">
+                  重点检查：双眼是否重影，牙齿与嘴唇是否破碎，发际线与脸部轮廓是否出现接缝，肤色是否突变。
+                </p>
+                <div className="inspection-lightbox__actions">
+                  <a
+                    className="result-inspect"
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    新窗口查看原图
+                  </a>
+                  <a
+                    className="result-download"
+                    href={previewUrl}
+                    download={`localface-simulation.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`}
+                  >
+                    下载结果
+                  </a>
+                </div>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
     </section>
   )
 }

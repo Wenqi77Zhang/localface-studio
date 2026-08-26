@@ -6,6 +6,10 @@ const MAXIMUM_IMAGE_BYTES = 25 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const MINIMUM_PREVIEW_RATIO = 3 / 4
 const MAXIMUM_PREVIEW_RATIO = 16 / 9
+const MINIMUM_RELIABLE_FACE_PIXELS = 96
+const CLOSE_UP_WIDTH_RATIO = 0.45
+const CLOSE_UP_HEIGHT_RATIO = 0.55
+const EDGE_MARGIN_RATIO = 0.02
 
 interface PhotoPickerProps {
   attentionMessage: string | null
@@ -66,9 +70,16 @@ export default function PhotoPicker({
   const revision = detection.status === 'ready' ? detection.revision : null
   const selecting = detection.status === 'ready' && detection.selecting
   const detectionMessage = describeDetection(detection)
+  const qualityAdvisory = describeQualityAdvisory(detection)
   const detectionFailed =
     detection.status === 'error' ||
     (detection.status === 'ready' && detection.revision.faces.length === 0)
+  const messageClassName =
+    error || attentionMessage || detectionFailed
+      ? 'field-message field-message--error'
+      : qualityAdvisory !== null
+        ? 'field-message field-message--warning'
+        : 'field-message'
 
   function chooseFile(candidate: File | undefined) {
     if (candidate === undefined) {
@@ -173,20 +184,53 @@ export default function PhotoPicker({
       </div>
 
       <p
-        className={
-          error || attentionMessage || detectionFailed
-            ? 'field-message field-message--error'
-            : 'field-message'
-        }
+        className={messageClassName}
         aria-live="polite"
       >
         {error ??
           attentionMessage ??
+          qualityAdvisory ??
           detectionMessage ??
           (file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · 仅在本机预览` : '尚未选择')}
       </p>
     </section>
   )
+}
+
+function describeQualityAdvisory(state: FaceDetectionState): string | null {
+  if (state.status !== 'ready' || state.revision.selectedDetectionId === null) {
+    return null
+  }
+  const revision = state.revision
+  const face = revision.faces.find(
+    (candidate) => candidate.detectionId === revision.selectedDetectionId,
+  )
+  if (face === undefined) {
+    return null
+  }
+  const risks: string[] = []
+  const widthRatio = face.box.width / revision.width
+  const heightRatio = face.box.height / revision.height
+  if (Math.min(face.box.width, face.box.height) < MINIMUM_RELIABLE_FACE_PIXELS) {
+    risks.push('人脸像素较少')
+  }
+  if (widthRatio > CLOSE_UP_WIDTH_RATIO || heightRatio > CLOSE_UP_HEIGHT_RATIO) {
+    risks.push('人脸属于超近景')
+  }
+  const horizontalMargin = revision.width * EDGE_MARGIN_RATIO
+  const verticalMargin = revision.height * EDGE_MARGIN_RATIO
+  if (
+    face.box.x < horizontalMargin ||
+    face.box.y < verticalMargin ||
+    face.box.x + face.box.width > revision.width - horizontalMargin ||
+    face.box.y + face.box.height > revision.height - verticalMargin
+  ) {
+    risks.push('人脸接近画面边缘')
+  }
+  if (risks.length === 0) {
+    return null
+  }
+  return `质检提示：${risks.join('、')}，更容易出现模糊、错位或融合接缝；生成后请务必放大检查。`
 }
 
 function describeDetection(state: FaceDetectionState): string | null {
