@@ -128,6 +128,7 @@ class SimulationBackend:
             "statement": SIMULATION_STATEMENT,
             "visible_watermark": task.watermark_enabled,
             "jpeg_quality": task.jpeg_quality,
+            "quality_preset": task.quality_preset.value,
         }
 
     @staticmethod

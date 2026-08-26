@@ -14,6 +14,7 @@ from localface_studio.application.task_repository import (
 )
 from localface_studio.domain.tasks import (
     OutputFormat,
+    QualityPreset,
     TaskRecord,
     TaskStatus,
     WorkflowNode,
@@ -227,6 +228,7 @@ def test_initialize_migrates_existing_tasks_to_default_jpeg_quality(
     stored = repository.get_for_actor(task.task_id, task.actor_id)
     assert stored is not None
     assert stored.jpeg_quality == 64
+    assert stored.quality_preset is QualityPreset.BALANCED
     assert stored.detector_id is None
     assert stored.source_detection_id is None
     assert stored.target_detection_id is None
@@ -236,4 +238,5 @@ def test_initialize_migrates_existing_tasks_to_default_jpeg_quality(
         "detector_id",
         "source_detection_id",
         "target_detection_id",
+        "quality_preset",
     } <= columns

@@ -11,6 +11,7 @@ from localface_studio.application.uploads import AsyncUpload, TaskUploadService
 from localface_studio.domain.images import UploadedImagePair
 from localface_studio.domain.tasks import (
     OutputFormat,
+    QualityPreset,
     RetentionOption,
     TaskRecord,
     TaskStatus,
@@ -76,6 +77,7 @@ class TaskCreationService:
         research_model_license_accepted: bool = False,
         output_format: OutputFormat,
         jpeg_quality: int,
+        quality_preset: QualityPreset = QualityPreset.BALANCED,
         watermark_enabled: bool,
         retention: RetentionOption,
         source_revision_id: str,
@@ -121,6 +123,7 @@ class TaskCreationService:
                     consented_at=now,
                     output_format=output_format,
                     jpeg_quality=jpeg_quality,
+                    quality_preset=quality_preset,
                     watermark_enabled=watermark_enabled,
                     detector_id=selection.detector_id,
                     source_detection_id=selection.source_detection_id,

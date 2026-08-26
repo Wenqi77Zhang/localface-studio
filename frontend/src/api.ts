@@ -88,6 +88,7 @@ export interface CreateTaskInput {
   csrfToken: string
   jpegQuality: number
   outputFormat: 'png' | 'jpeg'
+  qualityPreset: 'identity' | 'balanced'
   retention: '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
   source: File
   sourceDetection: TaskFaceSelection
@@ -104,6 +105,7 @@ export interface TaskFaceSelection {
 export interface CreatedTask {
   expiresAt: string
   jpegQuality: number
+  qualityPreset: 'identity' | 'balanced'
   outputFormat: 'png' | 'jpeg'
   status: TaskStatus
   taskId: string
@@ -191,6 +193,7 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
   )
   form.set('output_format', input.outputFormat)
   form.set('jpeg_quality', String(input.jpegQuality))
+  form.set('quality_preset', input.qualityPreset)
   form.set('watermark_enabled', String(input.watermarkEnabled))
   form.set('retention', input.retention)
 
@@ -218,7 +221,8 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     typeof payload.jpeg_quality !== 'number' ||
     !Number.isInteger(payload.jpeg_quality) ||
     payload.jpeg_quality < 5 ||
-    payload.jpeg_quality > 100
+    payload.jpeg_quality > 100 ||
+    (payload.quality_preset !== 'identity' && payload.quality_preset !== 'balanced')
   ) {
     throw new Error('后端返回了无效的任务信息。')
   }
@@ -227,6 +231,7 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
     status: payload.status as TaskStatus,
     expiresAt: payload.expires_at,
     jpegQuality: payload.jpeg_quality,
+    qualityPreset: payload.quality_preset,
     outputFormat: payload.output_format,
   }
 }

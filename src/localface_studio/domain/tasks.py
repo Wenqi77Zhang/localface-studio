@@ -37,6 +37,13 @@ class OutputFormat(StrEnum):
     JPEG = "jpeg"
 
 
+class QualityPreset(StrEnum):
+    """Auditable face post-processing profiles."""
+
+    IDENTITY = "identity"
+    BALANCED = "balanced"
+
+
 class RetentionOption(StrEnum):
     """User-selectable result retention periods with a 24-hour hard maximum."""
 
@@ -98,6 +105,7 @@ class TaskRecord:
     output_format: OutputFormat
     watermark_enabled: bool
     jpeg_quality: int = 95
+    quality_preset: QualityPreset = QualityPreset.BALANCED
     detector_id: str | None = None
     source_detection_id: str | None = None
     target_detection_id: str | None = None
@@ -124,6 +132,8 @@ class TaskRecord:
             raise ValueError("version must not be negative")
         if type(self.jpeg_quality) is not int or not 5 <= self.jpeg_quality <= 100:
             raise ValueError("jpeg_quality must be an integer from 5 to 100")
+        if not isinstance(self.quality_preset, QualityPreset):
+            raise ValueError("quality_preset must be a supported preset")
         selection_values = (
             self.detector_id,
             self.source_detection_id,

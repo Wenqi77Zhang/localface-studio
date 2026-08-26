@@ -29,6 +29,7 @@ type SessionState = 'checking' | 'ready' | 'unavailable'
 type OutputFormat = 'png' | 'jpeg'
 type Retention = '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
 type DetectorId = 'yunet-opencv' | 'scrfd-insightface-research'
+type QualityPreset = 'identity' | 'balanced'
 
 const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
@@ -123,6 +124,7 @@ function App() {
   const [authorizationConfirmed, setAuthorizationConfirmed] = useState(false)
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('png')
   const [jpegQuality, setJpegQuality] = useState(95)
+  const [qualityPreset, setQualityPreset] = useState<QualityPreset>('balanced')
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
   const [detectorId, setDetectorId] = useState<DetectorId>('yunet-opencv')
@@ -409,6 +411,7 @@ function App() {
         csrfToken,
         jpegQuality,
         outputFormat,
+        qualityPreset,
         retention,
         source: sourcePhoto,
         sourceDetection: sourceSelection,
@@ -608,7 +611,7 @@ function App() {
           <details className="advanced-settings">
             <summary>
               <span>高级设置</span>
-              <small>（检测模型、输出格式、JPEG 质量、本地保留、AI 水印）</small>
+              <small>（检测模型、质量预设、输出格式、JPEG 质量、本地保留、AI 水印）</small>
             </summary>
             <section className="task-options" aria-label="高级处理设置">
               <label>
@@ -657,6 +660,19 @@ function App() {
                     <span className="attention-text">请先确认研究模型使用限制。</span>
                   )}
               </div>
+              <label>
+                <span>质量预设</span>
+                <select
+                  value={qualityPreset}
+                  disabled={submitting || taskInProgress}
+                  onChange={(event) =>
+                    setQualityPreset(event.currentTarget.value as QualityPreset)
+                  }
+                >
+                  <option value="balanced">平衡优化（推荐）</option>
+                  <option value="identity">身份优先（原始融合）</option>
+                </select>
+              </label>
               <label>
                 <span>输出格式</span>
                 <select

@@ -63,6 +63,7 @@ def task_form(
     authorization: str = "true",
     output_format: str = "png",
     jpeg_quality: str = "95",
+    quality_preset: str = "balanced",
     watermark: str = "true",
     retention: str = "30m",
     target: bytes | None = None,
@@ -71,6 +72,7 @@ def task_form(
         "authorization_confirmed": authorization,
         "output_format": output_format,
         "jpeg_quality": jpeg_quality,
+        "quality_preset": quality_preset,
         "watermark_enabled": watermark,
         "retention": retention,
         "source_revision_id": "missing-source-revision",
@@ -169,6 +171,7 @@ def test_task_creation_persists_minimal_metadata_and_canonical_files(tmp_path: P
         assert payload["consent_version"] == CONSENT_VERSION
         assert payload["output_format"] == "jpeg"
         assert payload["jpeg_quality"] == 73
+        assert payload["quality_preset"] == "balanced"
         assert payload["watermark_enabled"] is False
         assert payload["source"] == {"image_format": "png", "width": 20, "height": 16}
         assert payload["target"] == {"image_format": "png", "width": 24, "height": 18}
@@ -225,6 +228,13 @@ def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: P
                 files=quality_files,
                 headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
             )
+            preset_data, preset_files = task_form(quality_preset="unknown")
+            invalid_preset = await client.post(
+                "/api/v1/tasks",
+                data=preset_data,
+                files=preset_files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
             retention_data, retention_files = task_form(retention="7d")
             invalid_retention = await client.post(
                 "/api/v1/tasks",
@@ -238,6 +248,7 @@ def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: P
         assert invalid.status_code == 422
         assert invalid.json()["code"] == "invalid_image"
         assert invalid_quality.status_code == 422
+        assert invalid_preset.status_code == 422
         assert invalid_quality.json()["code"] == "invalid_form"
         assert invalid_retention.status_code == 422
         assert invalid_retention.json()["code"] == "invalid_form"

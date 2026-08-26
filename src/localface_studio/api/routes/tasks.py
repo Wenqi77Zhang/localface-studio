@@ -31,6 +31,7 @@ from localface_studio.application.task_repository import TaskRepository
 from localface_studio.domain.images import ImageUploadError, ValidatedImage
 from localface_studio.domain.tasks import (
     OutputFormat,
+    QualityPreset,
     RetentionOption,
     TaskRecord,
     TaskStatus,
@@ -54,6 +55,7 @@ class CreatedTaskResponse(BaseModel):
     consent_version: str
     output_format: str
     jpeg_quality: int
+    quality_preset: str
     watermark_enabled: bool
     source: TaskImageResponse
     target: TaskImageResponse
@@ -70,6 +72,7 @@ class TaskResponse(BaseModel):
     expires_at: datetime
     output_format: str
     jpeg_quality: int
+    quality_preset: str
     watermark_enabled: bool
 
 
@@ -83,7 +86,7 @@ class AvailableResultResponse(BaseModel):
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
-    async with request.form(max_files=2, max_fields=10, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=2, max_fields=11, max_part_size=16 * 1024) as form:
         try:
             source = _upload(form, "source")
             target = _upload(form, "target")
@@ -93,6 +96,9 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
             )
             output_format = OutputFormat(_text(form, "output_format", OutputFormat.PNG.value))
             jpeg_quality = _integer(form, "jpeg_quality", 95, minimum=5, maximum=100)
+            quality_preset = QualityPreset(
+                _text(form, "quality_preset", QualityPreset.BALANCED.value)
+            )
             watermark_enabled = _boolean(form, "watermark_enabled", True)
             retention = RetentionOption(
                 _text(form, "retention", RetentionOption.THIRTY_MINUTES.value)
@@ -114,6 +120,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 research_model_license_accepted=research_model_license_accepted,
                 output_format=output_format,
                 jpeg_quality=jpeg_quality,
+                quality_preset=quality_preset,
                 watermark_enabled=watermark_enabled,
                 retention=retention,
                 source_revision_id=source_revision_id,
@@ -158,6 +165,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
         consent_version=CONSENT_VERSION,
         output_format=created.task.output_format.value,
         jpeg_quality=created.task.jpeg_quality,
+        quality_preset=created.task.quality_preset.value,
         watermark_enabled=created.task.watermark_enabled,
         source=_image_response(created.images.source),
         target=_image_response(created.images.target),
@@ -388,6 +396,7 @@ def _task_response(task: TaskRecord) -> TaskResponse:
         expires_at=task.expires_at,
         output_format=task.output_format.value,
         jpeg_quality=task.jpeg_quality,
+        quality_preset=task.quality_preset.value,
         watermark_enabled=task.watermark_enabled,
     )
 

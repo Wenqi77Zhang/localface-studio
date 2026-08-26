@@ -11,7 +11,13 @@ from localface_studio.application.task_repository import (
     ConcurrentTaskUpdateError,
     DuplicateTaskError,
 )
-from localface_studio.domain.tasks import OutputFormat, TaskRecord, TaskStatus, WorkflowNode
+from localface_studio.domain.tasks import (
+    OutputFormat,
+    QualityPreset,
+    TaskRecord,
+    TaskStatus,
+    WorkflowNode,
+)
 
 
 class SqliteTaskRepository:
@@ -39,6 +45,7 @@ class SqliteTaskRepository:
                     watermark_enabled INTEGER NOT NULL CHECK (watermark_enabled IN (0, 1)),
                     jpeg_quality INTEGER NOT NULL DEFAULT 95
                         CHECK (jpeg_quality BETWEEN 5 AND 100),
+                    quality_preset TEXT NOT NULL DEFAULT 'balanced',
                     detector_id TEXT,
                     source_detection_id TEXT,
                     target_detection_id TEXT,
@@ -67,6 +74,10 @@ class SqliteTaskRepository:
                     ADD COLUMN jpeg_quality INTEGER NOT NULL DEFAULT 95
                         CHECK (jpeg_quality BETWEEN 5 AND 100)
                     """
+                )
+            if "quality_preset" not in columns:
+                connection.execute(
+                    "ALTER TABLE tasks ADD COLUMN quality_preset TEXT NOT NULL DEFAULT 'balanced'"
                 )
             for column in (
                 "detector_id",
@@ -99,10 +110,11 @@ class SqliteTaskRepository:
                     INSERT INTO tasks (
                         task_id, actor_id, status, created_at, updated_at, expires_at,
                         consent_version, consented_at, output_format, watermark_enabled,
-                        jpeg_quality, detector_id, source_detection_id, target_detection_id,
+                        jpeg_quality, quality_preset, detector_id, source_detection_id,
+                        target_detection_id,
                         workflow_backend_id, swap_model_id, research_model_license_accepted,
                         version, current_node, error_code
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     self._values(task),
                 )
@@ -132,6 +144,7 @@ class SqliteTaskRepository:
                     output_format = ?,
                     watermark_enabled = ?,
                     jpeg_quality = ?,
+                    quality_preset = ?,
                     detector_id = ?,
                     source_detection_id = ?,
                     target_detection_id = ?,
@@ -150,6 +163,7 @@ class SqliteTaskRepository:
                     task.output_format.value,
                     int(task.watermark_enabled),
                     task.jpeg_quality,
+                    task.quality_preset.value,
                     task.detector_id,
                     task.source_detection_id,
                     task.target_detection_id,
@@ -255,6 +269,7 @@ class SqliteTaskRepository:
             task.output_format.value,
             int(task.watermark_enabled),
             task.jpeg_quality,
+            task.quality_preset.value,
             task.detector_id,
             task.source_detection_id,
             task.target_detection_id,
@@ -281,6 +296,7 @@ class SqliteTaskRepository:
             output_format=OutputFormat(str(row["output_format"])),
             watermark_enabled=bool(row["watermark_enabled"]),
             jpeg_quality=int(row["jpeg_quality"]),
+            quality_preset=QualityPreset(str(row["quality_preset"])),
             detector_id=_optional_text(row["detector_id"]),
             source_detection_id=_optional_text(row["source_detection_id"]),
             target_detection_id=_optional_text(row["target_detection_id"]),

@@ -139,6 +139,7 @@ async def create_task(
         "research_model_license_accepted": "true",
         "output_format": "png",
         "jpeg_quality": "95",
+        "quality_preset": "balanced",
         "watermark_enabled": "true",
         "retention": "30m",
     }

@@ -102,6 +102,7 @@ def test_simulation_exports_disclosed_png_and_jpeg_without_sensitive_metadata(
         assert metadata["statement"] == SIMULATION_STATEMENT
         assert metadata["visible_watermark"] is watermark
         assert metadata["jpeg_quality"] == jpeg_quality
+        assert metadata["quality_preset"] == "balanced"
         assert "private-actor" not in serialized
         assert str(tmp_path) not in serialized
         assert nodes == [

@@ -8,6 +8,7 @@ import pytest
 from localface_studio.domain.tasks import (
     InvalidTaskTransition,
     OutputFormat,
+    QualityPreset,
     RetentionOption,
     TaskRecord,
     TaskStatus,
@@ -119,6 +120,12 @@ def test_task_times_must_be_timezone_aware_and_monotonic() -> None:
 def test_jpeg_quality_must_be_a_bounded_integer(quality: object) -> None:
     with pytest.raises(ValueError, match="jpeg_quality"):
         replace(make_task(), jpeg_quality=quality)  # type: ignore[arg-type]
+
+
+def test_quality_preset_must_be_a_supported_enum() -> None:
+    assert make_task().quality_preset is QualityPreset.BALANCED
+    with pytest.raises(ValueError, match="quality_preset"):
+        replace(make_task(), quality_preset="unknown")  # type: ignore[arg-type]
 
 
 def test_retention_options_stop_at_24_hours() -> None:

@@ -17,6 +17,7 @@ from PIL import Image, UnidentifiedImageError
 from localface_studio import __version__
 from localface_studio.application.face_detection import FaceDetector
 from localface_studio.application.task_queue import NodeReporter, WorkflowExecutionError
+from localface_studio.backends.face_quality import harmonize_face_color
 from localface_studio.backends.result_export import (
     draw_ai_watermark,
     read_result_metadata,
@@ -24,7 +25,7 @@ from localface_studio.backends.result_export import (
 )
 from localface_studio.domain.faces import DetectedFace
 from localface_studio.domain.images import ImageRole
-from localface_studio.domain.tasks import TaskRecord, WorkflowNode
+from localface_studio.domain.tasks import QualityPreset, TaskRecord, WorkflowNode
 from localface_studio.infrastructure.image_decoding import decode_bgr_autorotated
 from localface_studio.infrastructure.model_manifest import (
     ModelArtifact,
@@ -141,6 +142,8 @@ class NativeResearchBackend:
                     raise
                 recognizer, swapper, providers = self._cpu_models()
                 swapped = _infer_swap(recognizer, swapper, source, target, source_face, target_face)
+        if task.quality_preset is QualityPreset.BALANCED:
+            swapped = harmonize_face_color(target, swapped, target_face)
         if swapped.dtype != np.uint8 or swapped.shape != target.shape:
             raise WorkflowExecutionError("native_output_shape_invalid")
 
@@ -162,6 +165,7 @@ class NativeResearchBackend:
             "execution_providers": list(providers),
             "visible_watermark": task.watermark_enabled,
             "jpeg_quality": task.jpeg_quality,
+            "quality_preset": task.quality_preset.value,
         }
         staging_path = self._workspaces.result_staging_path(task.task_id)
         result_path = self._workspaces.result_path(task.task_id, task.output_format)
