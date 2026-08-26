@@ -165,7 +165,8 @@ function ResultPreview({
         拖动分割线查看细节；聚焦对比区域后，也可使用方向键、Home 或 End 调整。
       </p>
       <p className="result-preview__notice">
-        当前为模拟后端输出，不代表已经执行真实换脸；AI 编辑元数据始终保留。
+        自动检查无法保证没有视觉伪影。下载前请放大检查眼睛、牙齿、发际线与脸部轮廓；AI
+        编辑元数据始终保留。
       </p>
     </section>
   )

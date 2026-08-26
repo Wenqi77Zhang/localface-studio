@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 5 质量预设与单例消融已完成；默认启动路径可在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 6 正在进行多样本身份、质量、性能与稳定性评测。
+当前状态：阶段 6 真实质量、性能与稳定性基线已完成；默认启动路径可在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 7 正在进行隐私与安全加固。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -42,8 +42,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 - [阶段 3 进展日志](docs/progress/phase-03.md)
 - [阶段 4 进展日志](docs/progress/phase-04.md)
 - [阶段 5 进展日志](docs/progress/phase-05.md)
+- [阶段 6 进展日志](docs/progress/phase-06.md)
+- [真实换脸质量基线](docs/benchmarking/FACE_SWAP_QUALITY_BASELINE.md)
 - [旧项目脱敏复盘](docs/research/LEGACY_PROJECT_REVIEW.md)
 
 ## 当前阶段
 
-阶段 0–2 已形成完整的本地产品与模拟回归闭环；阶段 3 已实现 YuNet 默认检测、SCRFD 非商业研究选项、多脸稳定编号与单人选择，并完成同一冻结集的本地对比。阶段 4 已接入受双重许可证门禁保护的 ArcFace 与 InSwapper 真实后端，完成选中人物恢复、CUDA 实际推理验证、显式 CPU 降级、结果检查和完整 API 演练。阶段 5 新增可审计的身份优先与平衡质量预设，平衡预设只在选中脸部羽化区域进行有界颜色协调。所有研究权重、测试人物图片、消融明细与生成结果始终由 Git 隔离。
+阶段 0–2 已形成完整的本地产品与模拟回归闭环；阶段 3 已实现 YuNet 默认检测、SCRFD 非商业研究选项、多脸稳定编号与单人选择，并完成同一冻结集的本地对比。阶段 4 已接入受双重许可证门禁保护的 ArcFace 与 InSwapper 真实后端，完成选中人物恢复、CUDA 实际推理验证、显式 CPU 降级、结果检查和完整 API 演练。阶段 5 新增可审计的身份优先与平衡质量预设。阶段 6 完成 7 组真实样例、14 次换脸的身份、几何、背景保护、色彩和性能基线，并如实记录自动指标无法识别的明显伪影。所有研究权重、测试人物图片、评测明细与生成结果始终由 Git 隔离。
