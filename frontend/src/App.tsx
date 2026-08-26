@@ -223,7 +223,9 @@ function App() {
   const latestTaskStatus = taskEvent?.status ?? createdTask?.status ?? null
   const taskInProgress =
     latestTaskStatus !== null && !terminalStatuses.has(latestTaskStatus)
-  const researchLicenseReady = scrfdResearchConfirmed
+  const researchLicenseRequired =
+    capabilities?.researchOnly === true || detectorId === 'scrfd-insightface-research'
+  const researchLicenseReady = !researchLicenseRequired || scrfdResearchConfirmed
   const canSubmit =
     apiState === 'online' &&
     capabilities?.modelFilesPresent === true &&
@@ -251,7 +253,7 @@ function App() {
       ? detectionRequirement('目标场景图', targetDetection.state.status)
       : null,
     !authorizationConfirmed ? '授权确认' : null,
-    !researchLicenseReady ? 'InsightFace 非商业研究确认' : null,
+    !researchLicenseReady ? '非商业研究模型确认' : null,
     apiState !== 'online' || csrfToken === null ? '本地后端连接' : null,
   ].filter((requirement): requirement is string => requirement !== null)
   const validationMessage =
@@ -632,7 +634,7 @@ function App() {
                   </option>
                 </select>
               </label>
-              <div
+              {researchLicenseRequired && <div
                   className={[
                     'research-license',
                     validationAttempted && !scrfdResearchConfirmed
@@ -659,7 +661,7 @@ function App() {
                   {validationAttempted && !scrfdResearchConfirmed && (
                     <span className="attention-text">请先确认研究模型使用限制。</span>
                   )}
-              </div>
+              </div>}
               <label>
                 <span>质量预设</span>
                 <select

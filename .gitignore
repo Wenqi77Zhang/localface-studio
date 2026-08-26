@@ -56,6 +56,7 @@ cache/
 logs/
 *.log
 *.jsonl
+config/comfyui-workflow.json
 docs/research/private/
 tests/fixtures/private/
 

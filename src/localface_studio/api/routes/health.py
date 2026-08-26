@@ -15,7 +15,7 @@ class HealthResponse(BaseModel):
 class CapabilitiesResponse(BaseModel):
     """Public product readiness without local paths or device identifiers."""
 
-    workflow_backend: Literal["native-research", "simulation"]
+    workflow_backend: Literal["comfyui", "native-research", "simulation"]
     model_files_present: bool
     model_integrity_verified: bool
     runtime_loaded: bool

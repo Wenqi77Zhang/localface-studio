@@ -9,6 +9,7 @@ authors = [
 ]
 dependencies = [
     "fastapi>=0.139.2",
+    "httpx>=0.28.1",
     "opencv-python-headless==5.0.0.93",
     "pillow>=12.3.0",
     "pydantic-settings>=2.14.2",
@@ -39,7 +40,6 @@ packages = ["src/localface_studio"]
 [dependency-groups]
 dev = [
     "hatchling>=1.31.0",
-    "httpx>=0.28.1",
     "mypy>=2.3.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",

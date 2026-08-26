@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "license_reviewed": true,
+  "network_access_required": false,
+  "result_node_id": "3",
+  "allowed_node_classes": [
+    "REPLACE_WITH_AUDITED_SOURCE_LOADER",
+    "REPLACE_WITH_AUDITED_TARGET_LOADER",
+    "REPLACE_WITH_AUDITED_FACE_SWAP_NODE",
+    "SaveImage"
+  ],
+  "prompt": {
+    "1": {
+      "class_type": "REPLACE_WITH_AUDITED_SOURCE_LOADER",
+      "inputs": {
+        "image": "__LOCALFACE_SOURCE_IMAGE__"
+      }
+    },
+    "2": {
+      "class_type": "REPLACE_WITH_AUDITED_TARGET_LOADER",
+      "inputs": {
+        "image": "__LOCALFACE_TARGET_IMAGE__"
+      }
+    },
+    "swap": {
+      "class_type": "REPLACE_WITH_AUDITED_FACE_SWAP_NODE",
+      "inputs": {
+        "source": ["1", 0],
+        "target": ["2", 0]
+      }
+    },
+    "3": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "__LOCALFACE_OUTPUT_PREFIX__",
+        "images": ["swap", 0]
+      }
+    }
+  }
+}

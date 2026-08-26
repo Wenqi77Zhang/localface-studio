@@ -174,7 +174,7 @@ Set-Location ..
 
 - 默认 `scripts/start.ps1` 使用原生研究后端，支持 YuNet 或 SCRFD 检测、单目标人物换脸、CUDA 优先和显式 CPU 降级。
 - 模型缺失时页面会显示“模型缺失”并阻止真实任务，不会退回模拟结果冒充成功。
-- ComfyUI 尚未接入；它将保持可选独立进程，不影响默认原生后端。
+- ComfyUI 已通过默认关闭的进程外适配器接入；配置方法和严格边界见[可选 ComfyUI 适配器](COMFYUI_ADAPTER.md)。没有 ComfyUI 时默认原生后端功能完整。
 - 健康检查成功只表示 API 进程在线；真实换脸可用性必须同时查看 capabilities。
 
 ## 配置与日志

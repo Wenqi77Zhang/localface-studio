@@ -36,6 +36,11 @@ from localface_studio.application.task_queue import (
     WorkflowBackend,
 )
 from localface_studio.application.uploads import TaskUploadService
+from localface_studio.backends.comfyui import (
+    COMFYUI_BACKEND_ID,
+    COMFYUI_WORKFLOW_MODEL_ID,
+    ComfyUiBackend,
+)
 from localface_studio.backends.native_research import (
     INSWAPPER_RESEARCH_MODEL_ID,
     NATIVE_RESEARCH_BACKEND_ID,
@@ -114,6 +119,11 @@ def create_app(
         )
         workflow_backend_id = NATIVE_RESEARCH_BACKEND_ID
         swap_model_id = INSWAPPER_RESEARCH_MODEL_ID
+        backend_capabilities = backend.capabilities
+    elif runtime_settings.workflow_backend == COMFYUI_BACKEND_ID:
+        backend = ComfyUiBackend(workspace_store, runtime_settings)
+        workflow_backend_id = COMFYUI_BACKEND_ID
+        swap_model_id = COMFYUI_WORKFLOW_MODEL_ID
         backend_capabilities = backend.capabilities
     else:
         backend = SimulationBackend(workspace_store)

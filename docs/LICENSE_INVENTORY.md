@@ -56,7 +56,8 @@
 |---|---|---|
 | Python 直接依赖 | FastAPI 0.139.2（MIT）、Uvicorn 0.51.0（BSD-3-Clause） | 绿色；发布物仍需保留相应版权与许可证文本。 |
 | Python 配置依赖 | pydantic-settings 2.14.2（MIT）、python-dotenv 1.2.2（BSD-3-Clause） | 绿色；只读取本地环境配置，不提交 `.env`。 |
-| Python 开发依赖 | Pytest 9.1.1、Ruff 0.15.22、Mypy 2.3.0、HTTPX 0.28.1、pytest-cov 7.1.0、Hatchling 1.31.0 | 仅用于测试、构建和质量门禁；发布前仍由完整许可证报告确认其锁定版本声明。 |
+| Python ComfyUI 适配依赖 | HTTPX 0.28.1（BSD-3-Clause） | 只用于可选的回环 ComfyUI API，不允许访问局域网或公网；发布物保留许可证文本。 |
+| Python 开发依赖 | Pytest 9.1.1、Ruff 0.15.22、Mypy 2.3.0、pytest-cov 7.1.0、Hatchling 1.31.0 | 仅用于测试、构建和质量门禁；发布前仍由完整许可证报告确认其锁定版本声明。 |
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
 | Python 图片与上传依赖 | Pillow 12.3.0（MIT-CMU）、python-multipart 0.0.32（Apache-2.0） | 绿色；仅用于本地图片解码校验与 multipart 上传解析，发布时保留许可证文本。 |
 | Python 人脸检测候选依赖 | opencv-python-headless 5.0.0.93（Apache-2.0）、NumPy 2.5.1（BSD-3-Clause） | 绿色；已在 Python 3.14.6、Windows 环境完成导入、模型加载和无脸图 CPU 推理检查。 |

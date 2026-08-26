@@ -21,7 +21,7 @@ export interface BackendCapabilities {
   modelIntegrityVerified: boolean
   researchOnly: boolean
   runtimeLoaded: boolean
-  workflowBackend: 'native-research' | 'simulation'
+  workflowBackend: 'comfyui' | 'native-research' | 'simulation'
 }
 
 export async function checkHealth(signal: AbortSignal): Promise<boolean> {
@@ -42,7 +42,8 @@ export async function getCapabilities(signal: AbortSignal): Promise<BackendCapab
   if (
     !response.ok ||
     !isObject(payload) ||
-    (payload.workflow_backend !== 'native-research' &&
+    (payload.workflow_backend !== 'comfyui' &&
+      payload.workflow_backend !== 'native-research' &&
       payload.workflow_backend !== 'simulation') ||
     typeof payload.model_files_present !== 'boolean' ||
     typeof payload.model_integrity_verified !== 'boolean' ||
