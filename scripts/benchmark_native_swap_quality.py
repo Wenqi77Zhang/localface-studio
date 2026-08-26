@@ -67,7 +67,7 @@ class ArcFaceEvaluator:
         artifact = load_model_artifact(manifest, ARCFACE_RESEARCH_MODEL_ID)
         model_path = verify_model_artifact(artifact, ROOT)
         try:
-            from insightface.model_zoo import model_zoo  # type: ignore[import-untyped]
+            from insightface.model_zoo import model_zoo
         except ImportError as error:
             raise RuntimeError("InsightFace evaluation runtime is missing.") from error
         model = model_zoo.get_model(str(model_path), providers=["CPUExecutionProvider"])
@@ -82,7 +82,7 @@ class ArcFaceEvaluator:
         face: DetectedFace,
     ) -> NDArray[np.float32]:
         try:
-            from insightface.app.common import Face  # type: ignore[import-untyped]
+            from insightface.app.common import Face
         except ImportError as error:
             raise RuntimeError("InsightFace evaluation runtime is missing.") from error
         box = face.box

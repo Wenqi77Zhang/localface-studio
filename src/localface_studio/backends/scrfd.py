@@ -173,7 +173,7 @@ def _create_scrfd_engine(
     input_sizes: tuple[tuple[int, int], ...],
 ) -> _ScrfdEngine:
     try:
-        from insightface.model_zoo import model_zoo  # type: ignore[import-not-found]
+        from insightface.model_zoo import model_zoo
     except ImportError as error:
         raise FaceDetectionError("face_detector_runtime_missing") from error
     try:

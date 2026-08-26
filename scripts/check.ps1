@@ -31,7 +31,7 @@ Set-Location $Root
 
 Invoke-Checked $Ruff check src tests scripts
 Invoke-Checked $Ruff format --check src tests scripts
-Invoke-Checked $Mypy src scripts tests
+Invoke-Checked $Mypy --no-incremental src scripts tests
 Invoke-Checked $Pytest -q "--basetemp=$PytestBaseTemp" --cov --cov-report=term-missing
 Invoke-Checked $Python scripts\scan_public_repo.py
 Invoke-Checked $Python scripts\scan_git_history.py

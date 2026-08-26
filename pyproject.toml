@@ -70,3 +70,7 @@ select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
 python_version = "3.14"
 strict = true
 files = ["src", "scripts", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["insightface.*", "onnxruntime", "onnxruntime.*"]
+ignore_missing_imports = true

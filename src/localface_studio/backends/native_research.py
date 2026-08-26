@@ -281,7 +281,7 @@ def _selected_face(faces: tuple[DetectedFace, ...], detection_id: str) -> Detect
 
 def _engine_face(face: DetectedFace) -> Any:
     try:
-        from insightface.app.common import Face  # type: ignore[import-untyped]
+        from insightface.app.common import Face
     except ImportError as error:
         raise WorkflowExecutionError("face_swap_runtime_missing") from error
     box = face.box
@@ -316,8 +316,8 @@ def _create_engines(
     prefer_gpu: bool,
 ) -> tuple[_RecognitionEngine, _SwapEngine, tuple[str, ...]]:
     try:
-        import onnxruntime as ort  # type: ignore[import-untyped]
-        from insightface.model_zoo import model_zoo  # type: ignore[import-untyped]
+        import onnxruntime as ort
+        from insightface.model_zoo import model_zoo
     except ImportError as error:
         raise WorkflowExecutionError("face_swap_runtime_missing") from error
     try:
