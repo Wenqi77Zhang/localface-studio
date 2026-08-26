@@ -112,6 +112,35 @@ function nodeDisplayState(
   return 'pending'
 }
 
+function capabilitySummary(capabilities: BackendCapabilities | null): string {
+  if (capabilities === null) return '能力检查中'
+  if (capabilities.readiness === 'setup_required') return '处理后端待配置'
+  if (capabilities.readiness === 'simulation') return '仅模拟模式'
+  if (capabilities.executionProvider === 'cuda') return 'GPU 换脸就绪'
+  if (capabilities.executionProvider === 'cpu') return 'CPU 换脸就绪'
+  return '真实换脸可用'
+}
+
+function capabilityDetail(capabilities: BackendCapabilities | null): string {
+  if (capabilities === null) return '正在读取本地处理能力。'
+  if (capabilities.advisories.includes('model_files_missing')) {
+    return '缺少本地研究模型文件，请按用户手册完成模型安装与校验。'
+  }
+  if (capabilities.advisories.includes('external_runtime_not_configured')) {
+    return 'ComfyUI 工作流或交换目录尚未配置完整。'
+  }
+  if (capabilities.advisories.includes('cpu_fallback')) {
+    return '真实换脸可用，但当前使用 CPU，处理速度会明显慢于 GPU。'
+  }
+  if (capabilities.advisories.includes('runtime_load_pending')) {
+    return '模型文件已就绪，将在首次处理时完成完整性校验并加载运行时。'
+  }
+  if (capabilities.advisories.includes('simulation_only')) {
+    return '当前只验证产品流程，不会执行真实换脸。'
+  }
+  return '本地处理能力已就绪。'
+}
+
 function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
   const [sessionState, setSessionState] = useState<SessionState>('checking')
@@ -223,6 +252,7 @@ function App() {
   const latestTaskStatus = taskEvent?.status ?? createdTask?.status ?? null
   const taskInProgress =
     latestTaskStatus !== null && !terminalStatuses.has(latestTaskStatus)
+  const capabilityLabel = capabilitySummary(capabilities)
   const researchLicenseRequired =
     capabilities?.researchOnly === true || detectorId === 'scrfd-insightface-research'
   const researchLicenseReady = !researchLicenseRequired || scrfdResearchConfirmed
@@ -243,7 +273,12 @@ function App() {
   )
   const sharedPreviewRatio = knownRatios.length === 0 ? 16 / 9 : Math.min(...knownRatios)
   const missingRequirements = [
-    capabilities !== null && !capabilities.modelFilesPresent ? '本地研究模型文件' : null,
+    capabilities?.advisories.includes('model_files_missing')
+      ? '本地研究模型文件'
+      : null,
+    capabilities?.advisories.includes('external_runtime_not_configured')
+      ? 'ComfyUI 工作流配置'
+      : null,
     sourcePhoto === null ? '身份来源图' : null,
     targetPhoto === null ? '目标场景图' : null,
     sourcePhoto !== null && researchLicenseReady && !hasSelectedFace(sourceDetection.state)
@@ -265,6 +300,17 @@ function App() {
     : sourcePhoto === null && targetPhoto === null && !authorizationConfirmed
       ? 'pristine'
       : 'incomplete'
+
+  useEffect(() => {
+    if (latestTaskStatus === null || !terminalStatuses.has(latestTaskStatus)) {
+      return
+    }
+    const controller = new AbortController()
+    void getCapabilities(controller.signal)
+      .then(setCapabilities)
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [latestTaskStatus])
 
   useEffect(() => {
     if (createdTask === null || !taskInProgress) {
@@ -506,7 +552,11 @@ function App() {
           </span>
         </a>
 
-        <div className="topbar-status" aria-live="polite">
+        <div
+          className="topbar-status"
+          aria-live="polite"
+          title={capabilityDetail(capabilities)}
+        >
           <span className={`status-dot status-dot--${apiState}`} />
           后端{apiLabel} · 会话
           {sessionState === 'ready'
@@ -514,14 +564,13 @@ function App() {
             : sessionState === 'unavailable'
               ? '不可用'
               : '建立中'}
-          {capabilities !== null &&
-            ` · ${capabilities.modelFilesPresent ? '模型已安装' : '模型缺失'}`}
+          {` · ${capabilityLabel}`}
         </div>
       </header>
 
       <main className="workspace">
         <aside className="project-panel" aria-label="项目说明">
-          <span className="eyebrow">阶段 4 · 本地精准换脸</span>
+          <span className="eyebrow">v1 候选版 · 本地精准换脸</span>
           <h1>精准换脸，<br />数据留在本机。</h1>
           <p className="lead">
             已接入本地人脸检测、单人物选择与研究版精准换脸执行链。

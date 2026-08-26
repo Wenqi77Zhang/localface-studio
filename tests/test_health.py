@@ -52,4 +52,6 @@ def test_capabilities_distinguish_simulation_readiness() -> None:
         "runtime_loaded": True,
         "execution_provider": "cpu",
         "research_only": False,
+        "readiness": "simulation",
+        "advisories": ["simulation_only"],
     }

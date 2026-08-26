@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 0–10 的候选版工程工作已完成，版本为 `1.0.0rc1`；等待产品负责人集中视觉验收和独立干净 Windows 复现后，才允许创建稳定 `v1.0.0` 标签。
+当前状态：阶段 0–11 的候选版工程工作已完成，版本为 `1.0.0rc2`；等待产品负责人集中视觉验收和独立干净 Windows 复现后，才允许创建稳定 `v1.0.0` 标签。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -47,8 +47,12 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 - [阶段 8 进展日志](docs/progress/phase-08.md)
 - [阶段 9 进展日志](docs/progress/phase-09.md)
 - [阶段 10 进展日志](docs/progress/phase-10.md)
+- [阶段 11 进展日志](docs/progress/phase-11.md)
 - [v1 最终集中验收清单](docs/FINAL_ACCEPTANCE.md)
 - [候选版说明](docs/releases/v1.0.0-rc1.md)
+- [RC2 成熟度加固说明](docs/releases/v1.0.0-rc2.md)
+- [成熟度审计](docs/MATURITY_AUDIT.md)
+- [公网部署就绪门禁](docs/PUBLIC_DEPLOYMENT_READINESS.md)
 - [发布、更新与回滚流程](docs/RELEASE_PROCESS.md)
 - [视频扩展接口冻结](docs/VIDEO_EXTENSION_CONTRACT.md)
 - [用户手册](docs/USER_GUIDE.md)
@@ -61,4 +65,4 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 ## 当前阶段
 
-阶段 0–10 已形成完整的本地单张照片候选产品、真实研究后端、质量基线、隐私安全验收、可选 ComfyUI 适配、Windows 交付链和公开仓库治理。阶段 6 的 7 组真实样例中有 2 组明显伪影，因此候选版不会用自动分数冒充美学合格。视频仅冻结 v2 接口，尚未实现。所有研究权重、测试人物图片、评测明细与生成结果始终由 Git 隔离。
+阶段 0–11 已形成完整的本地单张照片候选产品、真实研究后端、质量基线、隐私安全验收、可选 ComfyUI 适配、Windows 交付链和公开仓库治理。RC2 增加了可跨后端重启的 24 小时本地会话、可解释处理就绪状态、Dependabot 与 CodeQL。阶段 6 的 7 组真实样例中有 2 组明显伪影，因此候选版不会用自动分数冒充美学合格。视频仅冻结 v2 接口，尚未实现。公网生产仍被许可证、账户隔离、滥用治理和法律审查门禁阻止；所有研究权重、测试人物图片、评测明细与生成结果始终由 Git 隔离。

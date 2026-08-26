@@ -270,6 +270,12 @@ def test_native_capabilities_check_files_without_loading_models(tmp_path: Path) 
         "runtime_loaded": False,
         "execution_provider": "not_loaded",
         "research_only": True,
+        "readiness": "ready",
+        "advisories": [
+            "integrity_check_pending",
+            "runtime_load_pending",
+            "research_only",
+        ],
     }
 
     (tmp_path / "models" / "swapper.onnx").write_bytes(b"wrong size")

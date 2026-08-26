@@ -21,6 +21,19 @@ class CapabilitiesResponse(BaseModel):
     runtime_loaded: bool
     execution_provider: Literal["not_loaded", "cuda", "cpu"]
     research_only: bool
+    readiness: Literal["ready", "setup_required", "simulation"]
+    advisories: list[
+        Literal[
+            "cpu_fallback",
+            "external_runtime_not_configured",
+            "external_runtime_unverified",
+            "integrity_check_pending",
+            "model_files_missing",
+            "research_only",
+            "runtime_load_pending",
+            "simulation_only",
+        ]
+    ]
 
 
 router = APIRouter(tags=["system"])

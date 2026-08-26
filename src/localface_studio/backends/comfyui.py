@@ -167,6 +167,10 @@ class ComfyUiBackend:
             "runtime_loaded": False,
             "execution_provider": "not_loaded",
             "research_only": False,
+            "readiness": "ready" if configured else "setup_required",
+            "advisories": [
+                "external_runtime_unverified" if configured else "external_runtime_not_configured"
+            ],
         }
 
     async def run(self, task: TaskRecord, report_node: NodeReporter) -> None:

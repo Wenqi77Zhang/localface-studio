@@ -12,5 +12,8 @@ All notable project changes are recorded here. The project follows semantic vers
 - Added an isolated, loopback-only optional ComfyUI adapter without bundled nodes, models or workflows.
 - Added Windows setup, startup, diagnostics, user documentation and public repository quality gates.
 - Reserved versioned video frame, tracking, temporal consistency, audio mux and checkpoint interfaces without claiming video support.
+- Added restart-safe, bounded 24-hour local browser sessions while storing only cookie digests.
+- Added actionable backend readiness states and automatic runtime-status refresh after tasks.
+- Added Dependabot, CodeQL, dependency audits and an explicit public-production safety gate.
 
 The stable `v1.0.0` tag remains blocked on final product-owner visual acceptance and independent clean-Windows reproduction.

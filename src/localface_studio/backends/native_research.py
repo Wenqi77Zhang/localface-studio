@@ -233,6 +233,17 @@ class NativeResearchBackend:
         execution_provider = "not_loaded"
         if providers:
             execution_provider = "cuda" if providers[0] == "CUDAExecutionProvider" else "cpu"
+        advisories: list[str] = []
+        if not model_files_present:
+            advisories.append("model_files_missing")
+        else:
+            if not integrity_verified:
+                advisories.append("integrity_check_pending")
+            if not providers:
+                advisories.append("runtime_load_pending")
+            elif execution_provider == "cpu":
+                advisories.append("cpu_fallback")
+        advisories.append("research_only")
         return {
             "workflow_backend": NATIVE_RESEARCH_BACKEND_ID,
             "model_files_present": model_files_present,
@@ -240,6 +251,8 @@ class NativeResearchBackend:
             "runtime_loaded": bool(providers),
             "execution_provider": execution_provider,
             "research_only": True,
+            "readiness": "ready" if model_files_present else "setup_required",
+            "advisories": advisories,
         }
 
     def _artifact_file_present(self, artifact: ModelArtifact) -> bool:

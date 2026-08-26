@@ -47,7 +47,7 @@ def test_session_cookie_is_http_only_strict_and_reused() -> None:
         assert "httponly" in cookie
         assert "samesite=strict" in cookie
         assert "path=/api" in cookie
-        assert "max-age" not in cookie
+        assert "max-age=86400" in cookie
         assert first.headers["cache-control"] == "no-store"
         assert "session_id" not in first.text
         assert "actor_id" not in first.text
@@ -147,7 +147,7 @@ def test_only_the_explicitly_configured_alternate_frontend_port_is_allowed() -> 
     asyncio.run(scenario())
 
 
-def test_actor_owned_read_requires_live_session_and_restart_invalidates_it() -> None:
+def test_actor_owned_read_requires_live_session_and_survives_restart() -> None:
     async def scenario() -> None:
         first_app = security_test_app()
         first_transport = httpx.ASGITransport(app=first_app)
@@ -159,6 +159,7 @@ def test_actor_owned_read_requires_live_session_and_restart_invalidates_it() -> 
             await client.get("/api/v1/session")
             accepted = await client.get("/api/v1/test-owned")
             old_cookie = client.cookies.get("localface_session")
+            actor_id = accepted.json()["actor_id"]
 
         assert old_cookie is not None
         restarted_transport = httpx.ASGITransport(app=security_test_app())
@@ -171,7 +172,8 @@ def test_actor_owned_read_requires_live_session_and_restart_invalidates_it() -> 
 
         assert rejected.status_code == 401
         assert accepted.status_code == 200
-        assert accepted.json()["actor_id"]
-        assert after_restart.status_code == 401
+        assert actor_id
+        assert after_restart.status_code == 200
+        assert after_restart.json()["actor_id"] == actor_id
 
     asyncio.run(scenario())

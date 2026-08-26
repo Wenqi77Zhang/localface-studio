@@ -27,7 +27,6 @@ from localface_studio.application.detection_revisions import (
     TaskSelectionVerifier,
 )
 from localface_studio.application.face_detection import FaceDetector
-from localface_studio.application.sessions import SessionStore
 from localface_studio.application.task_cleanup import TaskCleanupService
 from localface_studio.application.task_creation import TaskCreationService
 from localface_studio.application.task_queue import (
@@ -55,6 +54,7 @@ from localface_studio.backends.yunet import YUNET_MODEL_ID, YuNetFaceDetector
 from localface_studio.infrastructure.config import Settings, get_settings
 from localface_studio.infrastructure.image_validation import PillowImageValidator
 from localface_studio.infrastructure.logging import configure_logging, log_event
+from localface_studio.infrastructure.sqlite_sessions import SqliteSessionStore
 from localface_studio.infrastructure.sqlite_tasks import SqliteTaskRepository
 from localface_studio.infrastructure.task_workspaces import TaskWorkspaceStore
 
@@ -68,8 +68,11 @@ def create_app(
     """Create an isolated application instance for runtime and tests."""
     runtime_settings = settings or get_settings()
     logger = configure_logging(runtime_settings.log_level)
-    repository = SqliteTaskRepository(runtime_settings.runtime_directory / "tasks.sqlite3")
+    database_path = runtime_settings.runtime_directory / "tasks.sqlite3"
+    repository = SqliteTaskRepository(database_path)
     repository.initialize()
+    sessions = SqliteSessionStore(database_path)
+    sessions.initialize()
     workspace_store = TaskWorkspaceStore(runtime_settings.runtime_directory / "tasks")
     upload_service = TaskUploadService(workspace_store, PillowImageValidator())
     project_root = Path(__file__).resolve().parents[3]
@@ -165,7 +168,7 @@ def create_app(
         lifespan=lifespan,
     )
     application.state.settings = runtime_settings
-    application.state.sessions = SessionStore()
+    application.state.sessions = sessions
     application.state.task_repository = repository
     application.state.task_creation = TaskCreationService(
         repository,
@@ -254,4 +257,6 @@ def _simulation_capabilities() -> dict[str, object]:
         "runtime_loaded": True,
         "execution_provider": "cpu",
         "research_only": False,
+        "readiness": "simulation",
+        "advisories": ["simulation_only"],
     }

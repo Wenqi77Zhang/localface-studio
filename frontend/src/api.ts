@@ -16,13 +16,36 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 export interface BackendCapabilities {
+  advisories: CapabilityAdvisory[]
   executionProvider: 'not_loaded' | 'cuda' | 'cpu'
   modelFilesPresent: boolean
   modelIntegrityVerified: boolean
   researchOnly: boolean
   runtimeLoaded: boolean
+  readiness: 'ready' | 'setup_required' | 'simulation'
   workflowBackend: 'comfyui' | 'native-research' | 'simulation'
 }
+
+export type CapabilityAdvisory =
+  | 'cpu_fallback'
+  | 'external_runtime_not_configured'
+  | 'external_runtime_unverified'
+  | 'integrity_check_pending'
+  | 'model_files_missing'
+  | 'research_only'
+  | 'runtime_load_pending'
+  | 'simulation_only'
+
+const CAPABILITY_ADVISORIES = new Set<CapabilityAdvisory>([
+  'cpu_fallback',
+  'external_runtime_not_configured',
+  'external_runtime_unverified',
+  'integrity_check_pending',
+  'model_files_missing',
+  'research_only',
+  'runtime_load_pending',
+  'simulation_only',
+])
 
 export async function checkHealth(signal: AbortSignal): Promise<boolean> {
   const response = await fetch(`${API_ROOT}/health`, {
@@ -51,7 +74,16 @@ export async function getCapabilities(signal: AbortSignal): Promise<BackendCapab
     (payload.execution_provider !== 'not_loaded' &&
       payload.execution_provider !== 'cuda' &&
       payload.execution_provider !== 'cpu') ||
-    typeof payload.research_only !== 'boolean'
+    typeof payload.research_only !== 'boolean' ||
+    (payload.readiness !== 'ready' &&
+      payload.readiness !== 'setup_required' &&
+      payload.readiness !== 'simulation') ||
+    !Array.isArray(payload.advisories) ||
+    !payload.advisories.every(
+      (advisory): advisory is CapabilityAdvisory =>
+        typeof advisory === 'string' &&
+        CAPABILITY_ADVISORIES.has(advisory as CapabilityAdvisory),
+    )
   ) {
     throw new Error('无法确认本地换脸能力是否就绪。')
   }
@@ -61,6 +93,8 @@ export async function getCapabilities(signal: AbortSignal): Promise<BackendCapab
     modelIntegrityVerified: payload.model_integrity_verified,
     runtimeLoaded: payload.runtime_loaded,
     executionProvider: payload.execution_provider,
+    readiness: payload.readiness,
+    advisories: payload.advisories,
     researchOnly: payload.research_only,
   }
 }
