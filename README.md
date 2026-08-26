@@ -2,15 +2,15 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 8 默认关闭的进程外 ComfyUI 适配器已完成；默认启动路径仍在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 9 正在完成 Windows 一键运行、诊断与交付文档。
+当前状态：阶段 9 Windows 一键运行、诊断和交付文档已完成；默认启动路径在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。阶段 10 正在完成 GitHub 发布准备和视频扩展接口冻结。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
 ## Windows 快速开始
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
+.\setup.cmd
+.\start.cmd
 ```
 
 初始化不需要管理员权限。受许可证限制的人脸模型不会进入 Git 仓库或安装包，需要按[本地开发指南](docs/DEVELOPMENT.md)单独取得并核验。启动后仅监听本机回环地址。
@@ -45,6 +45,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 - [阶段 6 进展日志](docs/progress/phase-06.md)
 - [阶段 7 进展日志](docs/progress/phase-07.md)
 - [阶段 8 进展日志](docs/progress/phase-08.md)
+- [阶段 9 进展日志](docs/progress/phase-09.md)
+- [用户手册](docs/USER_GUIDE.md)
+- [第三方组件声明](docs/licenses/THIRD_PARTY_NOTICES.md)
+- [Windows 可复现性实测](docs/REPRODUCIBILITY_REPORT.md)
 - [可选 ComfyUI 适配器](docs/COMFYUI_ADAPTER.md)
 - [真实换脸质量基线](docs/benchmarking/FACE_SWAP_QUALITY_BASELINE.md)
 - [阶段 7 安全验收](docs/security/PHASE_07_SECURITY_ACCEPTANCE.md)

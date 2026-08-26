@@ -21,6 +21,7 @@ FORBIDDEN_SUFFIXES = {
 TEXT_SUFFIXES = {
     "",
     ".css",
+    ".cmd",
     ".example",
     ".html",
     ".json",

@@ -31,6 +31,10 @@ if (-not $Uv) {
     throw "uv is required. Install it from https://docs.astral.sh/uv/ and rerun this script."
 }
 
+$PyLauncher = Get-Command py.exe -ErrorAction SilentlyContinue
+if (-not $PyLauncher) {
+    throw "The Python launcher is missing. Install 64-bit Python 3.14 from https://www.python.org/downloads/windows/ and enable the launcher."
+}
 $PythonPath = (& py -3.14 -c "import sys; print(sys.executable)").Trim()
 Assert-ExitCode "Python 3.14 discovery"
 if (-not (Test-Path -LiteralPath $PythonPath)) {
