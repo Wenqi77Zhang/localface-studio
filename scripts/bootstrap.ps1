@@ -109,6 +109,8 @@ if ($Offline) {
 }
 & $Npm @NpmArguments
 Assert-ExitCode "Frontend dependency sync"
+& $Npm run build
+Assert-ExitCode "Frontend production build"
 
 Set-Location $Root
 Write-Host "LocalFace Studio environment is ready."

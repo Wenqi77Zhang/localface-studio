@@ -24,7 +24,7 @@
 - 在项目内部创建 `.venv`，不会污染其他 Python 项目；
 - 严格按 `uv.lock` 安装 Python 依赖；
 - 下载固定版本的官方 Node.js 便携包，并同时核对官方清单和项目冻结 SHA-256；
-- 严格按前端锁文件安装依赖。
+- 严格按前端锁文件安装依赖并生成生产构建；普通启动不会运行开发服务器。
 
 模型不会自动下载或进入 GitHub。只有接受非商业研究限制后，才按[本地开发指南](DEVELOPMENT.md#单独安装研究模型)取得 YuNet、InSwapper 与 ArcFace 文件；SCRFD 是可选研究检测器。
 
@@ -51,6 +51,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\diagnose.ps1 -FullMo
 <http://127.0.0.1:5173/>
 
 必须使用这个地址；不要改成 `localhost`、局域网 IP 或其他端口。关闭时回到启动窗口按 `Ctrl+C`，脚本会同时停止前端和后端。只关闭浏览器标签页不会停止本地服务。
+
+普通启动只提供已经构建和检查过的前端文件，并同时启用内容安全策略、安全响应头和本地 API 代理。修改前端源码后需要重新运行 `setup.cmd` 或开发指南中的构建命令。
 
 ## 5. 完成一次换脸
 

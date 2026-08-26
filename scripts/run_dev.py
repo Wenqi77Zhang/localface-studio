@@ -24,7 +24,8 @@ def main() -> None:
     python = ROOT / ".venv" / "Scripts" / "python.exe"
     node = resolve_node()
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
-    for required in (python, vite):
+    frontend_build = ROOT / "frontend" / "dist" / "index.html"
+    for required in (python, vite, frontend_build):
         if not required.is_file():
             raise RuntimeError(f"Required local tool is missing: {required.relative_to(ROOT)}")
 
@@ -52,6 +53,7 @@ def main() -> None:
         [
             node,
             str(vite),
+            "preview",
             "--host",
             HOST,
             "--port",

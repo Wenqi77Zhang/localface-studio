@@ -1,4 +1,4 @@
-"""Verify the Vite frontend and its loopback proxy to the local API."""
+"""Verify the built frontend and its loopback proxy to the local API."""
 
 from __future__ import annotations
 
@@ -50,6 +50,7 @@ def main() -> None:
         [
             node,
             str(vite),
+            "preview",
             "--host",
             HOST,
             "--port",
@@ -65,11 +66,22 @@ def main() -> None:
     )
 
     try:
-        html = wait_for_text(frontend_url)
+        html, frontend_headers = wait_for_response(frontend_url)
         if "LocalFace Studio" not in html:
             raise RuntimeError("The frontend HTML does not contain the product title.")
+        expected_headers = {
+            "Content-Security-Policy": "default-src 'self'",
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+        }
+        for name, expected in expected_headers.items():
+            actual = frontend_headers.get(name, "")
+            if expected not in actual:
+                raise RuntimeError(f"Frontend security header is missing or invalid: {name}")
 
-        health = json.loads(wait_for_text(proxied_health_url))
+        health_text, _ = wait_for_response(proxied_health_url)
+        health = json.loads(health_text)
         if health != {"status": "ok"}:
             raise RuntimeError(f"Unexpected proxied health response: {health!r}")
 
@@ -121,8 +133,8 @@ def resolve_node() -> str:
     return system_node
 
 
-def wait_for_text(url: str) -> str:
-    """Read a fixed loopback URL, retrying for at most ten seconds."""
+def wait_for_response(url: str) -> tuple[str, dict[str, str]]:
+    """Read a fixed loopback URL and headers, retrying for at most ten seconds."""
     deadline = time.monotonic() + 10
     last_error: Exception | None = None
     while time.monotonic() < deadline:
@@ -131,7 +143,7 @@ def wait_for_text(url: str) -> str:
                 body: object = response.read()
                 if not isinstance(body, bytes):
                     raise RuntimeError("Local service returned a non-byte response body.")
-                return body.decode("utf-8")
+                return body.decode("utf-8"), dict(response.headers.items())
         except (URLError, TimeoutError) as error:
             last_error = error
             time.sleep(0.1)

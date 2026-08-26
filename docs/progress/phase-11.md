@@ -12,6 +12,7 @@
 - 完成 npm 生产依赖与 Python 当前环境漏洞审计，均未发现已知漏洞。
 - 增加 Dependabot 与 CodeQL，覆盖 uv、npm、GitHub Actions、Python 和 TypeScript。
 - Dependabot 仅按生态合并创建 minor/patch 建议并忽略 major 自动升级，避免一次产生大量高风险更新。
+- 普通启动由 Vite 开发服务切换为已检查的生产构建预览，并为页面与代理增加 CSP 和安全响应头。
 - 完成成熟度审计、公网部署门禁和独立安全边界 ADR。
 
 ## 关键边界

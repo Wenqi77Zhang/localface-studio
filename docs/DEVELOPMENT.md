@@ -10,7 +10,7 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
 ```
 
-脚本使用现有 Python 3.14 和 uv 创建 `.venv`、按 `uv.lock` 同步 Python 依赖；缺少 Node.js 时只从官方地址下载固定版本并校验固定 SHA-256，最后按 `package-lock.json` 安装前端依赖。它不需要管理员权限，也不会下载模型。
+脚本使用现有 Python 3.14 和 uv 创建 `.venv`、按 `uv.lock` 同步 Python 依赖；缺少 Node.js 时只从官方地址下载固定版本并校验固定 SHA-256，最后按 `package-lock.json` 安装前端依赖并生成生产构建。它不需要管理员权限，也不会下载模型。
 
 环境准备完成后启动应用：
 
@@ -143,6 +143,8 @@ Set-Location frontend
 ```
 
 页面只监听 <http://127.0.0.1:5173>，并将 `/api` 请求代理到 <http://127.0.0.1:8000>。因此应先在另一个 PowerShell 窗口启动后端。
+
+该命令只用于开发时热更新。面向普通用户的 `start.cmd` 会运行 `vite preview` 提供已构建的 `frontend/dist`，并启用与本地隐私边界一致的 CSP 与安全响应头；不要把开发服务当作交付启动方式。
 
 回到仓库根目录后，可以自动验证页面和 API 代理并确保临时进程被关闭：
 
