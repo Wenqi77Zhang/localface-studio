@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Sync locked Python environment
-        run: uv sync --locked --no-extra --no-python-downloads
+        run: uv sync --locked --no-python-downloads
       - uses: actions/setup-node@v6
         with:
           node-version: "24.18.0"
