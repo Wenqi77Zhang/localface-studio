@@ -69,6 +69,41 @@ def test_public_catalog_registers_research_scrfd_without_commercial_permission()
     assert artifact.commercial_mode_allowed is False
 
 
+@pytest.mark.parametrize(
+    ("model_id", "role", "filename", "size_bytes", "sha256_value"),
+    [
+        (
+            "inswapper-128-research",
+            "face_swapper",
+            "inswapper_128.onnx",
+            554253681,
+            "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af",
+        ),
+        (
+            "arcface-w600k-r50-research",
+            "face_encoder",
+            "w600k_r50.onnx",
+            174383860,
+            "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43",
+        ),
+    ],
+)
+def test_public_catalog_registers_research_swap_pipeline_without_commercial_permission(
+    model_id: str,
+    role: str,
+    filename: str,
+    size_bytes: int,
+    sha256_value: str,
+) -> None:
+    artifact = load_model_artifact(PROJECT_ROOT / "config/models.json", model_id)
+
+    assert artifact.role == role
+    assert artifact.filename == filename
+    assert artifact.size_bytes == size_bytes
+    assert artifact.sha256 == sha256_value
+    assert artifact.commercial_mode_allowed is False
+
+
 def test_model_hash_mismatch_fails_without_exposing_local_path(tmp_path: Path) -> None:
     manifest_path = write_manifest(tmp_path, b"expected")
     artifact = load_model_artifact(manifest_path, "yunet-opencv")

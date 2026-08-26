@@ -55,7 +55,7 @@
 - SCRFD 研究适配器只有在显式确认研究用途限制、模型清单角色正确且本地文件大小和 SHA-256 均匹配后才能创建；商业模式始终拒绝加载官方研究权重。
 - 已将本地校验通过的 SCRFD 研究模型接入后端检测器工厂；应用运行时不会自动联网下载任何模型资产。
 - 新增 SCRFD 输出映射、去重排序、异常输出、运行失败、许可证确认、商业模式拒绝、缺失或篡改权重测试；YuNet 与 SCRFD 共用严格图片输入校验。
-- 已将 InsightFace 1.0.1 与 ONNX Runtime 1.29.0 锁定为 `scrfd-research` 可选依赖；默认项目安装不会启用这套研究运行库。
+- 当时已将 InsightFace 与 ONNX Runtime 锁定为阶段 3 研究依赖；阶段 4 已统一迁移为 `native-research` 依赖组，并锁定 InsightFace 1.0.1 与 ONNX Runtime GPU 1.26.0。
 - 已在 Python 3.14.6、Windows 环境验证 InsightFace、适配器和 ONNX Runtime CPU Provider 可导入。为避免两个 OpenCV 发行包共享 `cv2` 文件，uv 排除 InsightFace 的普通 `opencv-python` 传递依赖，并继续使用 `opencv-python-headless` 5.0.0.93。
 - 已从 InsightFace 官方 GitHub v0.7 Release 下载 `buffalo_m.zip`；归档大小 275951529 字节，SHA-256 与官方公布值 `d98264bd8f2dc75cbc2ddce2a14e636e02bb857b3051c234b737bf3b614edca9` 完全一致。
 - 仅从已验证归档提取 `det_2.5g.onnx` 到 Git 忽略目录；文件大小 3292009 字节，SHA-256 为 `041f73f47371333d1d17a6fee6c8ab4e6aecabefe398ff32cca4e2d5eaee0af9`。识别、年龄、性别和额外对齐模型未写入运行目录。
@@ -76,7 +76,7 @@
 2. 让真实换脸后端按任务中的检测器 ID 重新检测，并以稳定人物 ID 恢复两侧选择。
 3. 实现对齐、换脸、融合、真实节点事件、资源释放和性能基线。
 
-## 尚未执行
+## 阶段交接
 
-- 真实换脸后端尚未消费任务中已校验的人物选择；当前模拟后端只保留这些字段。
-- 人工界面与视觉质量验收按 2026-08-26 的连续开发授权，合并到第一版最终集中验收。
+- 真实换脸后端消费人物选择的工作已在阶段 4 完成，详见 `phase-04.md`。
+- 人工界面与最终视觉质量验收按 2026-08-26 的连续开发授权，合并到第一版最终集中验收。

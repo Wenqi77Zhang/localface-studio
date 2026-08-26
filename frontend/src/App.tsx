@@ -12,11 +12,13 @@ import {
   checkHealth,
   createTask,
   establishSession,
+  getCapabilities,
   fetchTaskResult,
   getTask,
   parseTaskEvent,
   taskEventsUrl,
   type CreatedTask,
+  type BackendCapabilities,
   type TaskEvent,
   type TaskFaceSelection,
   type WorkflowNode,
@@ -28,17 +30,15 @@ type OutputFormat = 'png' | 'jpeg'
 type Retention = '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
 type DetectorId = 'yunet-opencv' | 'scrfd-insightface-research'
 
-const SCRFD_RESEARCH_MODEL_ID: DetectorId = 'scrfd-insightface-research'
-
 const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
   { node: 'prepare', number: '02', title: '任务准备', detail: '建立隔离工作区和处理参数' },
-  { node: 'simulate', number: '03', title: '模拟处理', detail: '生成明确标记的非换脸结果' },
+  { node: 'swap', number: '03', title: '身份替换', detail: '仅替换已选择的目标人物' },
   { node: 'inspect', number: '04', title: '输出检查', detail: '验证尺寸、编码和必要元数据' },
   { node: 'export', number: '05', title: '安全导出', detail: '原子写入最终结果文件' },
 ] as const
 
-const workflowOrder = workflowStages.map((stage) => stage.node)
+const workflowOrder: readonly WorkflowNode[] = workflowStages.map((stage) => stage.node)
 const terminalStatuses = new Set([
   'succeeded',
   'failed',
@@ -115,6 +115,7 @@ function App() {
   const [apiState, setApiState] = useState<ApiState>('checking')
   const [sessionState, setSessionState] = useState<SessionState>('checking')
   const [csrfToken, setCsrfToken] = useState<string | null>(null)
+  const [capabilities, setCapabilities] = useState<BackendCapabilities | null>(null)
   const [sourcePhoto, setSourcePhoto] = useState<File | null>(null)
   const [targetPhoto, setTargetPhoto] = useState<File | null>(null)
   const [sourceRatio, setSourceRatio] = useState<number | null>(null)
@@ -158,17 +159,20 @@ function App() {
 
     async function initializeLocalApi() {
       try {
-        const [healthy, csrf] = await Promise.all([
+        const [healthy, csrf, backendCapabilities] = await Promise.all([
           checkHealth(controller.signal),
           establishSession(controller.signal),
+          getCapabilities(controller.signal),
         ])
         setApiState(healthy ? 'online' : 'offline')
+        setCapabilities(backendCapabilities)
         setCsrfToken(csrf)
         setSessionState('ready')
       } catch {
         if (!controller.signal.aborted) {
           setApiState('offline')
           setCsrfToken(null)
+          setCapabilities(null)
           setSessionState('unavailable')
         }
       }
@@ -217,10 +221,10 @@ function App() {
   const latestTaskStatus = taskEvent?.status ?? createdTask?.status ?? null
   const taskInProgress =
     latestTaskStatus !== null && !terminalStatuses.has(latestTaskStatus)
-  const researchLicenseReady =
-    detectorId !== SCRFD_RESEARCH_MODEL_ID || scrfdResearchConfirmed
+  const researchLicenseReady = scrfdResearchConfirmed
   const canSubmit =
     apiState === 'online' &&
+    capabilities?.modelFilesPresent === true &&
     csrfToken !== null &&
     sourcePhoto !== null &&
     targetPhoto !== null &&
@@ -235,6 +239,7 @@ function App() {
   )
   const sharedPreviewRatio = knownRatios.length === 0 ? 16 / 9 : Math.min(...knownRatios)
   const missingRequirements = [
+    capabilities !== null && !capabilities.modelFilesPresent ? '本地研究模型文件' : null,
     sourcePhoto === null ? '身份来源图' : null,
     targetPhoto === null ? '目标场景图' : null,
     sourcePhoto !== null && researchLicenseReady && !hasSelectedFace(sourceDetection.state)
@@ -244,7 +249,7 @@ function App() {
       ? detectionRequirement('目标场景图', targetDetection.state.status)
       : null,
     !authorizationConfirmed ? '授权确认' : null,
-    !researchLicenseReady ? 'SCRFD 非商业研究确认' : null,
+    !researchLicenseReady ? 'InsightFace 非商业研究确认' : null,
     apiState !== 'online' || csrfToken === null ? '本地后端连接' : null,
   ].filter((requirement): requirement is string => requirement !== null)
   const validationMessage =
@@ -326,9 +331,7 @@ function App() {
         setResultPreviewUrl(objectUrl)
       } catch (error) {
         if (!controller.signal.aborted) {
-          setResultError(
-            error instanceof Error ? error.message : '无法加载模拟结果。',
-          )
+          setResultError(error instanceof Error ? error.message : '无法加载处理结果。')
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -402,6 +405,7 @@ function App() {
     try {
       const task = await createTask({
         authorizationConfirmed,
+        researchModelLicenseAccepted: scrfdResearchConfirmed,
         csrfToken,
         jpegQuality,
         outputFormat,
@@ -505,15 +509,17 @@ function App() {
             : sessionState === 'unavailable'
               ? '不可用'
               : '建立中'}
+          {capabilities !== null &&
+            ` · ${capabilities.modelFilesPresent ? '模型已安装' : '模型缺失'}`}
         </div>
       </header>
 
       <main className="workspace">
         <aside className="project-panel" aria-label="项目说明">
-          <span className="eyebrow">阶段 3 · 人脸检测与目标选择</span>
+          <span className="eyebrow">阶段 4 · 本地精准换脸</span>
           <h1>精准换脸，<br />数据留在本机。</h1>
           <p className="lead">
-            已接入本地人脸检测与单人物选择，下一步将选择结果绑定至处理任务。
+            已接入本地人脸检测、单人物选择与研究版精准换脸执行链。
           </p>
 
           <div className="privacy-card">
@@ -545,7 +551,7 @@ function App() {
               <span className="eyebrow">Workflow preview</span>
               <h2 id="workflow-title">单张照片处理流程</h2>
             </div>
-            <span className="draft-badge">本地模拟模式</span>
+            <span className="draft-badge">本地精准换脸 · 研究模式</span>
           </div>
 
           <div className="photo-grid" aria-label="图片输入">
@@ -592,7 +598,7 @@ function App() {
               onChange={(event) => changeAuthorization(event.currentTarget.checked)}
             />
             <span>
-              我确认拥有处理这两张图片及其中人物肖像的合法授权，并知晓当前输出为明确标记的模拟结果。
+              我确认拥有处理这两张图片及其中人物肖像的合法授权，并知晓输出属于 AI 编辑内容。
               {validationAttempted && !authorizationConfirmed && (
                 <strong className="attention-text">请先勾选确认知晓。</strong>
               )}
@@ -623,8 +629,7 @@ function App() {
                   </option>
                 </select>
               </label>
-              {detectorId === SCRFD_RESEARCH_MODEL_ID && (
-                <div
+              <div
                   className={[
                     'research-license',
                     validationAttempted && !scrfdResearchConfirmed
@@ -634,7 +639,8 @@ function App() {
                 >
                   <strong>研究模型使用限制</strong>
                   <p>
-                    InsightFace 官方预训练 SCRFD 权重仅限个人学习和非商业研究，不能用于公开商业服务。模型与图片均只在本机处理。
+                    当前精准换脸使用 InsightFace 官方 InSwapper 与 ArcFace
+                    预训练权重；选择 SCRFD 时检测器也属于同一研究模型体系。这些权重仅限个人学习和非商业研究，不能用于公开商业服务。模型与图片均只在本机处理。
                   </p>
                   <label className="checkbox-option research-license__confirm">
                     <input
@@ -650,8 +656,7 @@ function App() {
                   {validationAttempted && !scrfdResearchConfirmed && (
                     <span className="attention-text">请先确认研究模型使用限制。</span>
                   )}
-                </div>
-              )}
+              </div>
               <label>
                 <span>输出格式</span>
                 <select
@@ -787,7 +792,7 @@ function App() {
                     ? '正在提交…'
                     : taskInProgress
                       ? '任务处理中'
-                      : '开始模拟处理'}
+                      : '开始本地换脸'}
                 </button>
               </div>
             </div>

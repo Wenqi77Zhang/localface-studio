@@ -104,7 +104,13 @@ def test_simulation_exports_disclosed_png_and_jpeg_without_sensitive_metadata(
         assert metadata["jpeg_quality"] == jpeg_quality
         assert "private-actor" not in serialized
         assert str(tmp_path) not in serialized
-        assert nodes == list(WorkflowNode)
+        assert nodes == [
+            WorkflowNode.VALIDATE,
+            WorkflowNode.PREPARE,
+            WorkflowNode.SIMULATE,
+            WorkflowNode.INSPECT,
+            WorkflowNode.EXPORT,
+        ]
 
     asyncio.run(run_case(OutputFormat.PNG, True))
     asyncio.run(run_case(OutputFormat.JPEG, False))

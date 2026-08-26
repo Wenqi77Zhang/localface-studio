@@ -31,3 +31,25 @@ def test_health_contract_and_query_is_not_logged(capsys) -> None:  # type: ignor
     assert "must-not-appear" not in captured.err
     assert "token" not in captured.err
     assert logging.getLogger("localface").propagate is False
+
+
+def test_capabilities_distinguish_simulation_readiness() -> None:
+    async def request_capabilities() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app(Settings()))
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+        ) as client:
+            return await client.get("/api/v1/capabilities")
+
+    response = asyncio.run(request_capabilities())
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "workflow_backend": "simulation",
+        "model_files_present": True,
+        "model_integrity_verified": True,
+        "runtime_loaded": True,
+        "execution_provider": "cpu",
+        "research_only": False,
+    }

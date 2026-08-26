@@ -25,6 +25,7 @@ class WorkflowNode(StrEnum):
     VALIDATE = "validate"
     PREPARE = "prepare"
     SIMULATE = "simulate"
+    SWAP = "swap"
     INSPECT = "inspect"
     EXPORT = "export"
 
@@ -100,6 +101,9 @@ class TaskRecord:
     detector_id: str | None = None
     source_detection_id: str | None = None
     target_detection_id: str | None = None
+    workflow_backend_id: str = "simulation"
+    swap_model_id: str | None = None
+    research_model_license_accepted: bool = False
     version: int = 0
     current_node: WorkflowNode | None = None
     error_code: str | None = None
@@ -131,6 +135,14 @@ class TaskRecord:
             raise ValueError("task face selection metadata must be complete or absent")
         if any(value is not None and not value.strip() for value in selection_values):
             raise ValueError("task face selection metadata must not be blank")
+        if not self.workflow_backend_id.strip():
+            raise ValueError("workflow_backend_id must not be blank")
+        if self.swap_model_id is not None and not self.swap_model_id.strip():
+            raise ValueError("swap_model_id must be absent or non-blank")
+        if self.workflow_backend_id == "native-research" and (
+            self.swap_model_id is None or self.research_model_license_accepted is not True
+        ):
+            raise ValueError("native research tasks require a swap model and license acceptance")
         if self.error_code is not None and not self.error_code.strip():
             raise ValueError("error_code must be absent or non-blank")
         if self.status is TaskStatus.FAILED and self.error_code is None:

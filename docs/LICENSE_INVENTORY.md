@@ -17,7 +17,7 @@
 
 拟采用：MIT。
 
-阶段 1 初始化仓库时再添加正式 `LICENSE` 文件。在此之前必须确认：
+仓库已加入正式 MIT `LICENSE` 文件；该许可证只覆盖本项目原创代码，不改变第三方依赖和模型权重的单独条款。持续要求：
 
 - 没有复制 GPL-3.0 代码到本项目。
 - 没有把许可证不兼容的代码片段合并到核心代码。
@@ -60,7 +60,7 @@
 | Python 核心传递依赖 | Pydantic 2.13.4（MIT）、Starlette 1.3.1（BSD-3-Clause）等 | 绿色；以锁文件为精确版本来源。 |
 | Python 图片与上传依赖 | Pillow 12.3.0（MIT-CMU）、python-multipart 0.0.32（Apache-2.0） | 绿色；仅用于本地图片解码校验与 multipart 上传解析，发布时保留许可证文本。 |
 | Python 人脸检测候选依赖 | opencv-python-headless 5.0.0.93（Apache-2.0）、NumPy 2.5.1（BSD-3-Clause） | 绿色；已在 Python 3.14.6、Windows 环境完成导入、模型加载和无脸图 CPU 推理检查。 |
-| Python SCRFD 研究可选依赖 | InsightFace 1.0.1（代码 MIT）、ONNX Runtime 1.29.0（MIT） | 黄色；以 `scrfd-research` 可选依赖锁定，不随默认安装启用。InsightFace 官方预训练权重仍为红色资产。为避免共享 `cv2` 文件冲突，uv 明确排除其传递依赖 `opencv-python`，继续使用项目既有的 `opencv-python-headless`。 |
+| Python 原生研究换脸依赖 | InsightFace 1.0.1（代码 MIT）、ONNX Runtime GPU 1.26.0（MIT）及 CUDA/cuDNN 运行库 | 黄色；以 `native-research` 可选依赖锁定。InsightFace 官方预训练权重仍为红色资产。为避免共享模块冲突，uv 排除其传递的普通 `opencv-python` 与 CPU `onnxruntime`，继续使用项目既有的 headless OpenCV 和单一 GPU ORT；运行时保留显式 CPU Provider。 |
 | Python 元数据缺失项 | annotated-types 0.7.0、colorama 0.4.6 的已安装元数据未提供标准许可证表达式 | 待人工复核；不得因为元数据为空而推断为无许可证或自动归类为 MIT。 |
 | 前端直接运行依赖 | React 19.2.8、React DOM 19.2.8（MIT） | 绿色。 |
 | 前端直接开发依赖 | TypeScript 6.0.3（Apache-2.0）、Vite 8.1.5、OxcLint 1.75.0、React 插件与类型包（MIT） | 绿色；仅用于构建和检查。 |
@@ -76,8 +76,8 @@
 | OpenCV Zoo `face_detection_yunet_2026may.onnx` | 默认人脸检测、五点关键点 | YuNet 目录声明全部文件采用 MIT；已验证大小 229738 字节，SHA-256 `ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0` | 绿色候选 | 已通过本机加载和无脸图 CPU 推理检查；完成人脸困难场景验收后可作为默认检测权重。 |
 | InsightFace `buffalo_m` 中的 `det_2.5g.onnx` | 高精度检测对比、五点关键点 | 官方预训练模型仅限非商业研究；官方 v0.7 归档 SHA-256 `d98264bd8f2dc75cbc2ddce2a14e636e02bb857b3051c234b737bf3b614edca9`；检测文件大小 3292009 字节，SHA-256 `041f73f47371333d1d17a6fee6c8ab4e6aecabefe398ff32cca4e2d5eaee0af9` | 红色 | 仅本地个人学习和非商业对比；已只提取检测器，未保留到运行目录的识别、年龄、性别和额外对齐模型；不提交、不分发。 |
 | 未来自训练 `scrfd-custom` | 商业兼容检测候选 | 取决于训练数据、训练代码、基础权重和最终模型的完整权利链 | 待核验 | 完成模型卡、数据许可、训练记录、哈希和人工复核前不得标记为商业兼容。 |
-| `inswapper_128.onnx` 或同系列官方换脸权重 | 身份替换 | 官方要求商用联系授权；开放权重不等同于免费商用 | 红色 | 仅个人学习和非商业演示；不提交、不镜像、不随安装包分发。 |
-| InsightFace `buffalo_l` 等官方模型包 | 检测、关键点、身份编码 | 官方预训练模型仅限非商业研究，商用需联系授权 | 红色 | 仅个人学习和非商业演示；首次启用前显示限制。 |
+| 官方 `inswapper_128.onnx` | 身份替换 | 官方要求商用联系授权；开放权重不等同于免费商用。文件大小 554253681 字节，SHA-256 `e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af` | 红色 | 已作为阶段 4 本地研究后端；仅个人学习和非商业演示，不提交、不镜像、不随安装包分发。 |
+| `buffalo_l` 的 `w600k_r50.onnx` | ArcFace 身份编码 | 官方预训练模型仅限非商业研究。取得的归档大小 288621354 字节、SHA-256 `80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f`，该归档摘要是本地取得值而非上游公布值；提取文件大小 174383860 字节，SHA-256 `4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43` | 红色 | 阶段 4 只提取身份编码模型；未把完整模型包写入运行目录。仅个人学习和非商业演示，首次启用前强制确认。 |
 | SimSwap 官方项目及预训练权重 | 候选换脸后端 | CC BY-NC 4.0，仅限学术和非商业使用 | 红色 | 暂不采用为默认后端；如实验使用也不得商用。 |
 | 人脸增强权重 | 可选后处理 | 尚未选型；代码许可证不能代替权重和训练数据许可 | 待核验 | 阶段 5 前不得默认下载或启用。 |
 | 测试来源图与目标图 | 测试、截图和演示 | 必须为公共领域、CC0、明确允许相应用途的许可素材，或经书面授权/自行生成 | 待逐项登记 | 每个文件记录来源 URL、作者、许可证、下载日期、允许用途和本地哈希。 |
@@ -91,7 +91,7 @@ InsightFace 官方明确区分：源代码采用 MIT；官方提供或自动下�
 - https://github.com/deepinsight/insightface
 - https://github.com/deepinsight/insightface/blob/master/python-package/README.md#license
 
-当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有前后端双重门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace 与 ONNX Runtime 已作为研究用途可选依赖锁定；本地权重已从官方归档提取并登记，但继续由 Git 隔离，不随仓库或安装包分发。
+当前工程只提交不含权重的 SCRFD、ArcFace 与 InSwapper 适配代码。研究路径具有前后端双重门禁：必须明确确认研究用途限制，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace 与 ONNX Runtime GPU 已作为 `native-research` 可选依赖锁定；本地权重继续由 Git 隔离，不随仓库或安装包分发。
 
 ### SimSwap 的关键限制
 
@@ -142,7 +142,7 @@ SimSwap 官方项目采用 CC BY-NC 4.0，并明确限定学术和非商业用�
 ## 8. 未决事项
 
 - 阶段 1 质量门禁中生成完整传递依赖许可证报告，并人工复核元数据缺失项与 MPL-2.0 分发影响。
-- 阶段 4 核验实际模型官方发布页、哈希和下载机制。
+- 阶段 4 的 InSwapper 与 ArcFace 实际文件、官方发布页、取得值、文件哈希和运行门禁已核验；因上游未公布 `buffalo_l.zip` 摘要，清单明确区分“取得文件摘要”与“上游公布摘要”。
 - 阶段 3 的 YuNet 与研究版 SCRFD 精确文件、官方来源、大小和 SHA-256 已登记并验证。
 - 阶段 5 在选择增强模型前单独核验代码、权重和训练数据三层许可。
 - GitHub 首次公开发布前进行一次仓库资产与许可证扫描。

@@ -25,6 +25,10 @@ class AuthorizationRequiredError(ValueError):
     """Raised when the per-task image authorization was not confirmed."""
 
 
+class ResearchModelLicenseRequiredError(ValueError):
+    """Raised before persistence when a research-only backend lacks consent."""
+
+
 class TaskLimitExceededError(RuntimeError):
     """Raised when one actor already owns the allowed unfinished task count."""
 
@@ -50,11 +54,15 @@ class TaskCreationService:
         uploads: TaskUploadService,
         selection_verifier: TaskSelectionVerifier,
         *,
+        workflow_backend_id: str = "simulation",
+        swap_model_id: str | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self._repository = repository
         self._uploads = uploads
         self._selection_verifier = selection_verifier
+        self._workflow_backend_id = workflow_backend_id
+        self._swap_model_id = swap_model_id
         self._clock = clock
         self._creation_lock = Lock()
 
@@ -65,6 +73,7 @@ class TaskCreationService:
         source: AsyncUpload,
         target: AsyncUpload,
         authorization_confirmed: bool,
+        research_model_license_accepted: bool = False,
         output_format: OutputFormat,
         jpeg_quality: int,
         watermark_enabled: bool,
@@ -77,6 +86,13 @@ class TaskCreationService:
         """Create one queued task or leave neither files nor metadata behind."""
         if not authorization_confirmed:
             raise AuthorizationRequiredError("Image authorization must be confirmed.")
+        if (
+            self._workflow_backend_id == "native-research"
+            and research_model_license_accepted is not True
+        ):
+            raise ResearchModelLicenseRequiredError(
+                "Explicit non-commercial research model acceptance is required."
+            )
 
         async with self._creation_lock:
             if self._repository.count_unfinished_for_actor(actor_id) >= MAXIMUM_UNFINISHED_TASKS:
@@ -109,6 +125,9 @@ class TaskCreationService:
                     detector_id=selection.detector_id,
                     source_detection_id=selection.source_detection_id,
                     target_detection_id=selection.target_detection_id,
+                    workflow_backend_id=self._workflow_backend_id,
+                    swap_model_id=self._swap_model_id,
+                    research_model_license_accepted=research_model_license_accepted,
                 )
                 self._repository.create(task)
             except Exception:

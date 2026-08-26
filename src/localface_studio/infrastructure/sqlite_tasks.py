@@ -42,6 +42,10 @@ class SqliteTaskRepository:
                     detector_id TEXT,
                     source_detection_id TEXT,
                     target_detection_id TEXT,
+                    workflow_backend_id TEXT NOT NULL DEFAULT 'simulation',
+                    swap_model_id TEXT,
+                    research_model_license_accepted INTEGER NOT NULL DEFAULT 0
+                        CHECK (research_model_license_accepted IN (0, 1)),
                     version INTEGER NOT NULL CHECK (version >= 0),
                     current_node TEXT,
                     error_code TEXT
@@ -71,6 +75,18 @@ class SqliteTaskRepository:
             ):
                 if column not in columns:
                     connection.execute(f"ALTER TABLE tasks ADD COLUMN {column} TEXT")
+            if "workflow_backend_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE tasks ADD COLUMN workflow_backend_id "
+                    "TEXT NOT NULL DEFAULT 'simulation'"
+                )
+            if "swap_model_id" not in columns:
+                connection.execute("ALTER TABLE tasks ADD COLUMN swap_model_id TEXT")
+            if "research_model_license_accepted" not in columns:
+                connection.execute(
+                    "ALTER TABLE tasks ADD COLUMN research_model_license_accepted "
+                    "INTEGER NOT NULL DEFAULT 0 CHECK (research_model_license_accepted IN (0, 1))"
+                )
 
     def create(self, task: TaskRecord) -> None:
         """Insert a new task, mapping identifier collisions to a stable exception."""
@@ -84,8 +100,9 @@ class SqliteTaskRepository:
                         task_id, actor_id, status, created_at, updated_at, expires_at,
                         consent_version, consented_at, output_format, watermark_enabled,
                         jpeg_quality, detector_id, source_detection_id, target_detection_id,
+                        workflow_backend_id, swap_model_id, research_model_license_accepted,
                         version, current_node, error_code
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     self._values(task),
                 )
@@ -118,6 +135,9 @@ class SqliteTaskRepository:
                     detector_id = ?,
                     source_detection_id = ?,
                     target_detection_id = ?,
+                    workflow_backend_id = ?,
+                    swap_model_id = ?,
+                    research_model_license_accepted = ?,
                     version = ?,
                     current_node = ?,
                     error_code = ?
@@ -133,6 +153,9 @@ class SqliteTaskRepository:
                     task.detector_id,
                     task.source_detection_id,
                     task.target_detection_id,
+                    task.workflow_backend_id,
+                    task.swap_model_id,
+                    int(task.research_model_license_accepted),
                     task.version,
                     task.current_node.value if task.current_node is not None else None,
                     task.error_code,
@@ -235,6 +258,9 @@ class SqliteTaskRepository:
             task.detector_id,
             task.source_detection_id,
             task.target_detection_id,
+            task.workflow_backend_id,
+            task.swap_model_id,
+            int(task.research_model_license_accepted),
             task.version,
             task.current_node.value if task.current_node is not None else None,
             task.error_code,
@@ -258,6 +284,9 @@ class SqliteTaskRepository:
             detector_id=_optional_text(row["detector_id"]),
             source_detection_id=_optional_text(row["source_detection_id"]),
             target_detection_id=_optional_text(row["target_detection_id"]),
+            workflow_backend_id=str(row["workflow_backend_id"]),
+            swap_model_id=_optional_text(row["swap_model_id"]),
+            research_model_license_accepted=bool(row["research_model_license_accepted"]),
             version=int(row["version"]),
             current_node=WorkflowNode(str(current_node)) if current_node is not None else None,
             error_code=str(row["error_code"]) if row["error_code"] is not None else None,

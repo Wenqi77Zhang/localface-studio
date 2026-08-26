@@ -46,7 +46,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $Root ".venv\Scripts\python.exe"))) 
 }
 
 $UvSyncArguments = @(
-    "sync", "--locked", "--no-managed-python", "--no-python-downloads", "--cache-dir", $UvCache
+    "sync", "--locked", "--extra", "native-research",
+    "--no-managed-python", "--no-python-downloads", "--cache-dir", $UvCache
 )
 if ($Offline) {
     $UvSyncArguments += "--offline"

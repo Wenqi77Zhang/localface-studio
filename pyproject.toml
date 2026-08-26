@@ -17,9 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-scrfd-research = [
+native-research = [
     "insightface==1.0.1",
-    "onnxruntime==1.29.0",
+    "onnxruntime-gpu[cuda,cudnn]==1.26.0",
 ]
 
 [build-system]
@@ -27,7 +27,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-exclude-dependencies = ["opencv-python"]
+# InsightFace declares generic OpenCV and CPU ONNX Runtime dependencies. The
+# project supplies the headless OpenCV build and one audited GPU runtime with
+# an explicit CPU fallback, avoiding duplicate packages that expose the same
+# Python modules.
+exclude-dependencies = ["onnxruntime", "opencv-python"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/localface_studio"]

@@ -36,6 +36,11 @@ from localface_studio.application.task_queue import (
     WorkflowBackend,
 )
 from localface_studio.application.uploads import TaskUploadService
+from localface_studio.backends.native_research import (
+    INSWAPPER_RESEARCH_MODEL_ID,
+    NATIVE_RESEARCH_BACKEND_ID,
+    NativeResearchBackend,
+)
 from localface_studio.backends.scrfd import (
     SCRFD_RESEARCH_MODEL_ID,
     ScrfdResearchFaceDetector,
@@ -95,8 +100,33 @@ def create_app(
         detection_revisions,
     )
     events = TaskEventBroker()
-    backend = workflow_backend or SimulationBackend(workspace_store)
-    task_queue = SingleTaskQueue(repository, backend, events, workspace_store.remove)
+    if workflow_backend is not None:
+        backend = workflow_backend
+        workflow_backend_id = "simulation"
+        swap_model_id = None
+        backend_capabilities = _simulation_capabilities
+    elif runtime_settings.workflow_backend == NATIVE_RESEARCH_BACKEND_ID:
+        backend = NativeResearchBackend(
+            workspace_store,
+            detector_resolver,
+            project_root / "config" / "models.json",
+            project_root,
+        )
+        workflow_backend_id = NATIVE_RESEARCH_BACKEND_ID
+        swap_model_id = INSWAPPER_RESEARCH_MODEL_ID
+        backend_capabilities = backend.capabilities
+    else:
+        backend = SimulationBackend(workspace_store)
+        workflow_backend_id = "simulation"
+        swap_model_id = None
+        backend_capabilities = _simulation_capabilities
+    task_queue = SingleTaskQueue(
+        repository,
+        backend,
+        events,
+        workspace_store.remove,
+        timeout_seconds=runtime_settings.task_timeout_seconds,
+    )
     cleanup = TaskCleanupService(repository, workspace_store)
 
     @asynccontextmanager
@@ -130,9 +160,12 @@ def create_app(
         repository,
         upload_service,
         task_selection_verifier,
+        workflow_backend_id=workflow_backend_id,
+        swap_model_id=swap_model_id,
     )
     application.state.task_events = events
     application.state.task_queue = task_queue
+    application.state.backend_capabilities = backend_capabilities
     application.state.task_cleanup = cleanup
     application.state.task_workspaces = workspace_store
     application.state.detection_revisions = detection_revisions
@@ -195,3 +228,14 @@ def create_app(
 
 def _constant_detector(detector: FaceDetector) -> Callable[[], FaceDetector]:
     return lambda: detector
+
+
+def _simulation_capabilities() -> dict[str, object]:
+    return {
+        "workflow_backend": "simulation",
+        "model_files_present": True,
+        "model_integrity_verified": True,
+        "runtime_loaded": True,
+        "execution_provider": "cpu",
+        "research_only": False,
+    }

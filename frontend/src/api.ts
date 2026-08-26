@@ -15,6 +15,15 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+export interface BackendCapabilities {
+  executionProvider: 'not_loaded' | 'cuda' | 'cpu'
+  modelFilesPresent: boolean
+  modelIntegrityVerified: boolean
+  researchOnly: boolean
+  runtimeLoaded: boolean
+  workflowBackend: 'native-research' | 'simulation'
+}
+
 export async function checkHealth(signal: AbortSignal): Promise<boolean> {
   const response = await fetch(`${API_ROOT}/health`, {
     headers: { Accept: 'application/json' },
@@ -22,6 +31,37 @@ export async function checkHealth(signal: AbortSignal): Promise<boolean> {
   })
   const payload = await readJson(response)
   return response.ok && isObject(payload) && payload.status === 'ok'
+}
+
+export async function getCapabilities(signal: AbortSignal): Promise<BackendCapabilities> {
+  const response = await fetch(`${API_ROOT}/capabilities`, {
+    headers: { Accept: 'application/json' },
+    signal,
+  })
+  const payload = await readJson(response)
+  if (
+    !response.ok ||
+    !isObject(payload) ||
+    (payload.workflow_backend !== 'native-research' &&
+      payload.workflow_backend !== 'simulation') ||
+    typeof payload.model_files_present !== 'boolean' ||
+    typeof payload.model_integrity_verified !== 'boolean' ||
+    typeof payload.runtime_loaded !== 'boolean' ||
+    (payload.execution_provider !== 'not_loaded' &&
+      payload.execution_provider !== 'cuda' &&
+      payload.execution_provider !== 'cpu') ||
+    typeof payload.research_only !== 'boolean'
+  ) {
+    throw new Error('无法确认本地换脸能力是否就绪。')
+  }
+  return {
+    workflowBackend: payload.workflow_backend,
+    modelFilesPresent: payload.model_files_present,
+    modelIntegrityVerified: payload.model_integrity_verified,
+    runtimeLoaded: payload.runtime_loaded,
+    executionProvider: payload.execution_provider,
+    researchOnly: payload.research_only,
+  }
 }
 
 export async function establishSession(signal: AbortSignal): Promise<string> {
@@ -44,6 +84,7 @@ export async function establishSession(signal: AbortSignal): Promise<string> {
 
 export interface CreateTaskInput {
   authorizationConfirmed: boolean
+  researchModelLicenseAccepted: boolean
   csrfToken: string
   jpegQuality: number
   outputFormat: 'png' | 'jpeg'
@@ -119,7 +160,13 @@ export type TaskStatus =
   | 'expired'
   | 'deleted'
 
-export type WorkflowNode = 'validate' | 'prepare' | 'simulate' | 'inspect' | 'export'
+export type WorkflowNode =
+  | 'validate'
+  | 'prepare'
+  | 'simulate'
+  | 'swap'
+  | 'inspect'
+  | 'export'
 
 export interface TaskEvent {
   currentNode: WorkflowNode | null
@@ -138,6 +185,10 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
   form.set('target_revision_id', input.targetDetection.revisionId)
   form.set('target_detection_id', input.targetDetection.detectionId)
   form.set('authorization_confirmed', String(input.authorizationConfirmed))
+  form.set(
+    'research_model_license_accepted',
+    String(input.researchModelLicenseAccepted),
+  )
   form.set('output_format', input.outputFormat)
   form.set('jpeg_quality', String(input.jpegQuality))
   form.set('watermark_enabled', String(input.watermarkEnabled))
@@ -248,6 +299,7 @@ const WORKFLOW_NODES = new Set<WorkflowNode>([
   'validate',
   'prepare',
   'simulate',
+  'swap',
   'inspect',
   'export',
 ])

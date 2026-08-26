@@ -2,7 +2,7 @@
 
 LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张照片精准换脸 Web 应用。
 
-当前状态：阶段 3 人脸检测与单人选择工程实现已完成；阶段 4 原生精准换脸后端正在实施。
+当前状态：阶段 4 原生精准换脸 MVP 已完成；默认启动路径可在本机通过 GPU 执行真实单人换脸，并保留显式 CPU 降级。
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
@@ -13,7 +13,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 ```
 
-初始化不需要管理员权限，也不会下载人脸模型。启动后仅监听本机回环地址；详细说明见[本地开发指南](docs/DEVELOPMENT.md)。
+初始化不需要管理员权限。受许可证限制的人脸模型不会进入 Git 仓库或安装包，需要按[本地开发指南](docs/DEVELOPMENT.md)单独取得并核验。启动后仅监听本机回环地址。
 
 ## 已冻结的产品方向
 
@@ -39,8 +39,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start.ps1
 - [阶段 0 进展日志](docs/progress/phase-00.md)
 - [阶段 1 进展日志](docs/progress/phase-01.md)
 - [阶段 2 进展日志](docs/progress/phase-02.md)
+- [阶段 3 进展日志](docs/progress/phase-03.md)
+- [阶段 4 进展日志](docs/progress/phase-04.md)
 - [旧项目脱敏复盘](docs/research/LEGACY_PROJECT_REVIEW.md)
 
 ## 当前阶段
 
-阶段 0–2 已形成完整的本地模拟产品闭环；阶段 3 已实现 YuNet 默认检测、SCRFD 非商业研究选项、多脸稳定编号与单人选择，并完成同一冻结集的本地对比。研究权重始终由 Git 隔离。当前正在实现阶段 4 原生精准换脸后端；在真实后端完成前，现有任务结果仍明确标记为模拟结果。
+阶段 0–2 已形成完整的本地产品与模拟回归闭环；阶段 3 已实现 YuNet 默认检测、SCRFD 非商业研究选项、多脸稳定编号与单人选择，并完成同一冻结集的本地对比。阶段 4 已接入受双重许可证门禁保护的 ArcFace 与 InSwapper 真实后端，完成选中人物恢复、CUDA 实际推理验证、显式 CPU 降级、结果检查和完整 API 演练。所有研究权重、测试人物图片与生成结果始终由 Git 隔离。

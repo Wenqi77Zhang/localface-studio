@@ -9,6 +9,9 @@ if (-not (Test-Path -LiteralPath $Python)) {
 }
 
 Set-Location $Root
+if ([string]::IsNullOrWhiteSpace($env:LOCALFACE_WORKFLOW_BACKEND)) {
+    $env:LOCALFACE_WORKFLOW_BACKEND = "native-research"
+}
 & $Python scripts\run_dev.py
 if ($LASTEXITCODE -ne 0) {
     throw "LocalFace Studio stopped with exit code $LASTEXITCODE."

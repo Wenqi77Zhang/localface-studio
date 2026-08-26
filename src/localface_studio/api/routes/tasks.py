@@ -16,6 +16,7 @@ from localface_studio.application.detection_revisions import DetectionRevisionEr
 from localface_studio.application.task_creation import (
     CONSENT_VERSION,
     AuthorizationRequiredError,
+    ResearchModelLicenseRequiredError,
     TaskCreationService,
     TaskLimitExceededError,
     utc_now,
@@ -82,11 +83,14 @@ class AvailableResultResponse(BaseModel):
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
-    async with request.form(max_files=2, max_fields=9, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=2, max_fields=10, max_part_size=16 * 1024) as form:
         try:
             source = _upload(form, "source")
             target = _upload(form, "target")
             authorization_confirmed = _boolean(form, "authorization_confirmed", False)
+            research_model_license_accepted = _boolean(
+                form, "research_model_license_accepted", False
+            )
             output_format = OutputFormat(_text(form, "output_format", OutputFormat.PNG.value))
             jpeg_quality = _integer(form, "jpeg_quality", 95, minimum=5, maximum=100)
             watermark_enabled = _boolean(form, "watermark_enabled", True)
@@ -107,6 +111,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 source=source,
                 target=target,
                 authorization_confirmed=authorization_confirmed,
+                research_model_license_accepted=research_model_license_accepted,
                 output_format=output_format,
                 jpeg_quality=jpeg_quality,
                 watermark_enabled=watermark_enabled,
@@ -120,6 +125,12 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
             return _error(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "authorization_required",
+                str(error),
+            )
+        except ResearchModelLicenseRequiredError as error:
+            return _error(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "research_model_license_not_accepted",
                 str(error),
             )
         except TaskLimitExceededError as error:
@@ -259,7 +270,7 @@ def download_result(task_id: str, request: Request) -> FileResponse | JSONRespon
     return FileResponse(
         path=result_path,
         media_type=media_type,
-        filename=f"localface-simulation.{suffix}",
+        filename=f"localface-result.{suffix}",
         headers={"Cache-Control": "no-store"},
     )
 

@@ -247,6 +247,33 @@ def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: P
     asyncio.run(scenario())
 
 
+def test_native_task_requires_explicit_research_model_acceptance(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = create_app(
+            Settings(
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+                workflow_backend="native-research",
+            )
+        )
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            data, files = task_form()
+            response = await client.post(
+                "/api/v1/tasks",
+                data=data,
+                files=files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
+
+        assert response.status_code == 422
+        assert response.json()["code"] == "research_model_license_not_accepted"
+        assert app.state.task_repository.list_all() == []
+        assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
+
+    asyncio.run(scenario())
+
+
 def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> None:
     async def scenario() -> None:
         backend = BlockingBackend()

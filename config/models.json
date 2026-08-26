@@ -44,10 +44,56 @@
         "adapter": "insightface-scrfd",
         "package": "insightface",
         "verified_package_version": "1.0.1",
-        "verified_onnxruntime_version": "1.29.0",
+        "verified_onnxruntime_version": "1.26.0",
         "verified_python_version": "3.14.6",
         "initial_device": "cpu",
         "input_sizes": [[128, 128], [640, 640]]
+      }
+    },
+    {
+      "id": "inswapper-128-research",
+      "role": "face_swapper",
+      "version": "v0.7-20260312",
+      "filename": "inswapper_128.onnx",
+      "relative_path": "models/swappers/inswapper/inswapper_128.onnx",
+      "source_url": "https://github.com/deepinsight/insightface/releases/download/v0.7/inswapper_128.onnx",
+      "source_repository": "https://github.com/deepinsight/insightface",
+      "license": "InsightFace pretrained model - non-commercial research only; commercial use requires separate licensing",
+      "license_url": "https://github.com/deepinsight/insightface#license",
+      "sha256": "e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af",
+      "size_bytes": 554253681,
+      "distribution": "download-separately",
+      "commercial_mode_allowed": false,
+      "runtime": {
+        "adapter": "insightface-inswapper",
+        "package": "insightface",
+        "verified_package_version": "1.0.1",
+        "input_size": [128, 128]
+      }
+    },
+    {
+      "id": "arcface-w600k-r50-research",
+      "role": "face_encoder",
+      "version": "buffalo_l-v0.7-20230402",
+      "filename": "w600k_r50.onnx",
+      "relative_path": "models/encoders/arcface/w600k_r50.onnx",
+      "source_url": "https://github.com/deepinsight/insightface/releases/download/v0.7/buffalo_l.zip",
+      "source_repository": "https://github.com/deepinsight/insightface",
+      "source_archive_entry": "w600k_r50.onnx",
+      "source_archive_sha256_acquired": "80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f",
+      "source_archive_size_bytes": 288621354,
+      "source_archive_digest_note": "Acquired-file hash; the upstream GitHub asset did not publish a digest.",
+      "license": "InsightFace pretrained model - non-commercial research only",
+      "license_url": "https://github.com/deepinsight/insightface#license",
+      "sha256": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43",
+      "size_bytes": 174383860,
+      "distribution": "download-separately",
+      "commercial_mode_allowed": false,
+      "runtime": {
+        "adapter": "insightface-arcface",
+        "package": "insightface",
+        "verified_package_version": "1.0.1",
+        "input_size": [112, 112]
       }
     }
   ]

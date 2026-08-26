@@ -55,7 +55,7 @@ uv venv .venv --python "D:\Program Files\Python\Python314\python.exe" --no-manag
 首次同步需要访问 PyPI：
 
 ```powershell
-uv sync --locked --cache-dir .tools/uv-cache --no-managed-python --no-python-downloads
+uv sync --locked --extra native-research --cache-dir .tools/uv-cache --no-managed-python --no-python-downloads
 ```
 
 `uv.lock` 记录直接依赖和间接依赖的精确版本与包哈希。`--locked` 表示配置与锁文件不一致时立即失败，而不是静默改变版本。
@@ -63,7 +63,7 @@ uv sync --locked --cache-dir .tools/uv-cache --no-managed-python --no-python-dow
 缓存完整后可以验证离线重建能力：
 
 ```powershell
-uv sync --locked --offline --cache-dir .tools/uv-cache --no-managed-python --no-python-downloads
+uv sync --locked --extra native-research --offline --cache-dir .tools/uv-cache --no-managed-python --no-python-downloads
 ```
 
 ## 运行后端诊断
@@ -157,9 +157,25 @@ Set-Location ..
 {"frontend":"ok","api_proxy":"ok"}
 ```
 
-## 当前不包含的能力
+## 单独安装研究模型
 
-这一骨架尚未安装人脸检测、身份向量、换脸模型、ONNX Runtime GPU 或 ComfyUI。页面和健康检查成功只代表前后端工程链路正常，不代表换脸能力已经实现。
+应用代码已经包含真实本地换脸后端，但 InsightFace 官方预训练权重仅限非商业研究，因此初始化脚本不会替用户接受许可证、自动下载或把权重打进仓库。只有确认用于个人学习或非商业研究后，才可从官方 GitHub Release 取得以下两个文件：
+
+| 最终位置 | 大小 | SHA-256 |
+|---|---:|---|
+| `models/swappers/inswapper/inswapper_128.onnx` | 554253681 | `e4a3f08c753cb72d04e10aa0f7dbe3deebbf39567d4ead6dce08e98aa49e16af` |
+| `models/encoders/arcface/w600k_r50.onnx` | 174383860 | `4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43` |
+
+官方来源与限制见[许可证与资产清单](LICENSE_INVENTORY.md)和 `config/models.json`。`w600k_r50.onnx` 位于官方 `buffalo_l.zip` 内，只需提取这一项；不要复制完整模型包。启动后访问 <http://127.0.0.1:8000/api/v1/capabilities> 可区分服务在线、模型文件存在、完整性已验证和实际执行器状态。文件存在只做快速大小检查；第一次真实任务仍会执行完整 SHA-256 校验。
+
+研究权重不得提交到 Git。`.gitignore` 已同时按 `models/` 目录和常见权重扩展名阻止提交，公开仓库扫描会再次检查。
+
+## 当前能力边界
+
+- 默认 `scripts/start.ps1` 使用原生研究后端，支持 YuNet 或 SCRFD 检测、单目标人物换脸、CUDA 优先和显式 CPU 降级。
+- 模型缺失时页面会显示“模型缺失”并阻止真实任务，不会退回模拟结果冒充成功。
+- ComfyUI 尚未接入；它将保持可选独立进程，不影响默认原生后端。
+- 健康检查成功只表示 API 进程在线；真实换脸可用性必须同时查看 capabilities。
 
 ## 配置与日志
 
