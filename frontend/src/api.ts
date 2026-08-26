@@ -184,6 +184,7 @@ export async function detectFaces(input: {
   csrfToken: string
   detectorId: string
   file: File
+  researchLicenseAccepted: boolean
   role: FaceImageRole
   signal: AbortSignal
 }): Promise<FaceDetectionRevision> {
@@ -191,6 +192,7 @@ export async function detectFaces(input: {
   form.set('image', input.file)
   form.set('role', input.role)
   form.set('detector_id', input.detectorId)
+  form.set('research_license_accepted', String(input.researchLicenseAccepted))
   const response = await fetch(`${API_ROOT}/face-detections`, {
     method: 'POST',
     credentials: 'same-origin',

@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1024, le=65535)
+    frontend_port: int = Field(default=5173, ge=1024, le=65535)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     runtime_directory: Path = Path("runtime")
 

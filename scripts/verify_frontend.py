@@ -18,13 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
 BACKEND_PORT = 8000
 FRONTEND_PORT = 5173
-FRONTEND_URL = f"http://{HOST}:{FRONTEND_PORT}/"
-PROXIED_HEALTH_URL = f"http://{HOST}:{FRONTEND_PORT}/api/v1/health"
 
 
 def main() -> None:
     """Run a bounded integration check and optionally capture a screenshot."""
     args = parse_args()
+    frontend_url = f"http://{HOST}:{args.frontend_port}/"
+    proxied_health_url = f"{frontend_url}api/v1/health"
+    os.environ["LOCALFACE_PORT"] = str(args.backend_port)
+    os.environ["LOCALFACE_FRONTEND_PORT"] = str(args.frontend_port)
     node = ROOT / ".tools" / "node" / "node.exe"
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
     if not node.is_file() or not vite.is_file():
@@ -34,13 +36,15 @@ def main() -> None:
         uvicorn.Config(
             "localface_studio.main:app",
             host=HOST,
-            port=BACKEND_PORT,
+            port=args.backend_port,
             log_level="warning",
         )
     )
     backend_thread = threading.Thread(target=backend.run, daemon=True)
     backend_thread.start()
 
+    environment = clean_windows_environment()
+    environment["LOCALFACE_API_TARGET"] = f"http://{HOST}:{args.backend_port}"
     frontend = subprocess.Popen(
         [
             str(node),
@@ -48,11 +52,11 @@ def main() -> None:
             "--host",
             HOST,
             "--port",
-            str(FRONTEND_PORT),
+            str(args.frontend_port),
             "--strictPort",
         ],
         cwd=ROOT / "frontend",
-        env=clean_windows_environment(),
+        env=environment,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -60,11 +64,11 @@ def main() -> None:
     )
 
     try:
-        html = wait_for_text(FRONTEND_URL)
+        html = wait_for_text(frontend_url)
         if "LocalFace Studio" not in html:
             raise RuntimeError("The frontend HTML does not contain the product title.")
 
-        health = json.loads(wait_for_text(PROXIED_HEALTH_URL))
+        health = json.loads(wait_for_text(proxied_health_url))
         if health != {"status": "ok"}:
             raise RuntimeError(f"Unexpected proxied health response: {health!r}")
 
@@ -73,7 +77,7 @@ def main() -> None:
             "api_proxy": "ok",
         }
         if args.screenshot:
-            result["screenshot"] = str(capture_screenshot(args.screenshot))
+            result["screenshot"] = str(capture_screenshot(args.screenshot, frontend_url))
         print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     finally:
         stop_process(frontend)
@@ -88,6 +92,8 @@ def parse_args() -> argparse.Namespace:
     """Parse the optional visual-verification output path."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--screenshot", type=Path)
+    parser.add_argument("--backend-port", type=int, default=BACKEND_PORT)
+    parser.add_argument("--frontend-port", type=int, default=FRONTEND_PORT)
     return parser.parse_args()
 
 
@@ -120,7 +126,7 @@ def wait_for_text(url: str) -> str:
     raise RuntimeError(f"Local service did not become ready: {url}") from last_error
 
 
-def capture_screenshot(output: Path) -> Path:
+def capture_screenshot(output: Path, frontend_url: str) -> Path:
     """Capture the local page with Microsoft Edge in headless mode."""
     edge_candidates = (
         Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
@@ -144,7 +150,7 @@ def capture_screenshot(output: Path) -> Path:
             "--window-size=1440,1000",
             f"--user-data-dir={profile}",
             f"--screenshot={resolved_output}",
-            FRONTEND_URL,
+            frontend_url,
         ],
         check=False,
         timeout=30,

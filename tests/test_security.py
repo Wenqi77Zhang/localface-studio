@@ -108,6 +108,37 @@ def test_mutation_requires_allowed_origin_session_and_csrf() -> None:
     asyncio.run(scenario())
 
 
+def test_only_the_explicitly_configured_alternate_frontend_port_is_allowed() -> None:
+    async def scenario() -> None:
+        app = create_app(Settings(log_level="CRITICAL", frontend_port=15174))
+
+        def mutate() -> dict[str, bool]:
+            return {"ok": True}
+
+        app.add_api_route("/api/v1/test-alternate-origin", mutate, methods=["POST"])
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://127.0.0.1",
+        ) as client:
+            session = await client.get("/api/v1/session")
+            token = session.json()["csrf_token"]
+            accepted = await client.post(
+                "/api/v1/test-alternate-origin",
+                headers={"Origin": "http://127.0.0.1:15174", CSRF_HEADER: token},
+            )
+            rejected = await client.post(
+                "/api/v1/test-alternate-origin",
+                headers={"Origin": "http://127.0.0.1:15175", CSRF_HEADER: token},
+            )
+
+        assert accepted.status_code == 200
+        assert rejected.status_code == 403
+        assert rejected.json() == {"detail": "request origin is not allowed"}
+
+    asyncio.run(scenario())
+
+
 def test_actor_owned_read_requires_live_session_and_restart_invalidates_it() -> None:
     async def scenario() -> None:
         first_app = security_test_app()

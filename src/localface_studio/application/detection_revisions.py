@@ -261,11 +261,14 @@ class FaceDetectionService:
         input_path: Callable[[str, ImageRole], Path],
         detector_resolver: Callable[[str], FaceDetector],
         revisions: DetectionRevisionStore,
+        *,
+        research_only_detector_ids: frozenset[str] | None = None,
     ) -> None:
         self._uploads = upload_service
         self._input_path = input_path
         self._detector_resolver = detector_resolver
         self._revisions = revisions
+        self._research_only_detector_ids = research_only_detector_ids or frozenset()
 
     async def detect(
         self,
@@ -273,8 +276,17 @@ class FaceDetectionService:
         actor_id: str,
         role: ImageRole,
         detector_id: str,
+        research_license_accepted: bool = False,
         upload: AsyncUpload,
     ) -> DetectionRevision:
+        if (
+            detector_id in self._research_only_detector_ids
+            and research_license_accepted is not True
+        ):
+            raise DetectionRevisionError(
+                "research_model_license_not_accepted",
+                "Explicit acceptance is required before using this research-only model.",
+            )
         workspace_id = uuid4().hex
         self._revisions.invalidate(actor_id, role)
         try:

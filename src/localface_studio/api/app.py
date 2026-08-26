@@ -36,6 +36,10 @@ from localface_studio.application.task_queue import (
     WorkflowBackend,
 )
 from localface_studio.application.uploads import TaskUploadService
+from localface_studio.backends.scrfd import (
+    SCRFD_RESEARCH_MODEL_ID,
+    ScrfdResearchFaceDetector,
+)
 from localface_studio.backends.simulation import SimulationBackend
 from localface_studio.backends.yunet import YUNET_MODEL_ID, YuNetFaceDetector
 from localface_studio.infrastructure.config import Settings, get_settings
@@ -70,7 +74,12 @@ def create_app(
             YUNET_MODEL_ID: lambda: YuNetFaceDetector.from_manifest(
                 project_root / "config" / "models.json",
                 project_root,
-            )
+            ),
+            SCRFD_RESEARCH_MODEL_ID: lambda: ScrfdResearchFaceDetector.from_manifest(
+                project_root / "config" / "models.json",
+                project_root,
+                research_license_accepted=True,
+            ),
         }
     detector_resolver = CachedDetectorResolver(detector_factories)
     detection_revisions = DetectionRevisionStore()
@@ -79,6 +88,7 @@ def create_app(
         workspace_store.input_path,
         detector_resolver,
         detection_revisions,
+        research_only_detector_ids=frozenset({SCRFD_RESEARCH_MODEL_ID}),
     )
     task_selection_verifier = TaskSelectionVerifier(
         workspace_store.input_path,

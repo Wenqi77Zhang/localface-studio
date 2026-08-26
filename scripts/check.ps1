@@ -52,8 +52,8 @@ if (-not $SkipFrontend) {
     Set-Location (Join-Path $Root "frontend")
     Invoke-Checked $Npm run check
     Set-Location $Root
-    Invoke-Checked $Python scripts\verify_frontend.py
-    Invoke-Checked $Python scripts\run_dev.py --smoke-test
+    Invoke-Checked $Python scripts\verify_frontend.py --backend-port 18000 --frontend-port 15173
+    Invoke-Checked $Python scripts\run_dev.py --smoke-test --backend-port 18001 --frontend-port 15174
 }
 
 Write-Host "All LocalFace Studio quality gates passed."

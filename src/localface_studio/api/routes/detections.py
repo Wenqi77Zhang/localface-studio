@@ -67,7 +67,7 @@ async def create_detection(
     response: Response,
 ) -> DetectionRevisionResponse | JSONResponse:
     """Detect faces in one disposable upload and retain only bounded metadata."""
-    async with request.form(max_files=1, max_fields=2, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=1, max_fields=3, max_part_size=16 * 1024) as form:
         image = form.get("image")
         if not isinstance(image, UploadFile):
             return _error(
@@ -78,6 +78,10 @@ async def create_detection(
         try:
             role = ImageRole(_form_text(form.get("role"), "source"))
             detector_id = _form_text(form.get("detector_id"), YUNET_MODEL_ID)
+            research_license_accepted = _form_boolean(
+                form.get("research_license_accepted"),
+                False,
+            )
         except ValueError as error:
             return _error(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -90,12 +94,18 @@ async def create_detection(
                 actor_id=request.state.actor_id,
                 role=role,
                 detector_id=detector_id,
+                research_license_accepted=research_license_accepted,
                 upload=image,
             )
         except ImageUploadError as error:
             return _error(status.HTTP_422_UNPROCESSABLE_CONTENT, error.code, str(error))
         except DetectionRevisionError as error:
-            return _error(status.HTTP_503_SERVICE_UNAVAILABLE, error.code, str(error))
+            status_code = (
+                status.HTTP_403_FORBIDDEN
+                if error.code == "research_model_license_not_accepted"
+                else status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+            return _error(status_code, error.code, str(error))
     response.headers["Cache-Control"] = "no-store"
     return _response(revision)
 
@@ -180,6 +190,16 @@ def _form_text(value: object, default: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("detection fields must be non-empty text")
     return value
+
+
+def _form_boolean(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    raise ValueError("boolean detection fields must be true or false")
 
 
 def _not_found() -> JSONResponse:

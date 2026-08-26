@@ -196,6 +196,9 @@ function describeDetection(state: FaceDetectionState): string | null {
   if (state.status === 'error') {
     return state.message
   }
+  if (state.status === 'blocked') {
+    return state.message
+  }
   if (state.status !== 'ready') {
     return null
   }

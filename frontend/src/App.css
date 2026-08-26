@@ -827,6 +827,36 @@
   color: inherit;
 }
 
+.research-license {
+  padding: 13px;
+  border: 1px solid rgba(228, 184, 92, 0.38);
+  border-radius: 10px;
+  background: rgba(72, 55, 24, 0.2);
+}
+
+.research-license > strong {
+  color: #f0cc7b;
+  font-size: 11px;
+}
+
+.research-license > p {
+  margin: 7px 0 11px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.research-license .research-license__confirm {
+  min-height: auto;
+  align-items: flex-start;
+}
+
+.research-license--attention {
+  border-color: rgba(224, 102, 102, 0.72);
+  background: rgba(224, 102, 102, 0.06);
+  box-shadow: 0 0 0 3px rgba(224, 102, 102, 0.08);
+}
+
 .quality-option {
   grid-column: auto;
 }

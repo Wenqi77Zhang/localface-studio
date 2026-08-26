@@ -1,4 +1,4 @@
-"""Run the local YuNet adapter against a licensed benchmark manifest."""
+"""Run one verified local detector against a licensed benchmark manifest."""
 
 from __future__ import annotations
 
@@ -13,6 +13,11 @@ from typing import Any
 
 import cv2
 
+from localface_studio.application.face_detection import FaceDetector
+from localface_studio.backends.scrfd import (
+    SCRFD_RESEARCH_MODEL_ID,
+    ScrfdResearchFaceDetector,
+)
 from localface_studio.backends.yunet import YuNetFaceDetector
 from localface_studio.benchmarking.face_detection import (
     BenchmarkManifestError,
@@ -24,21 +29,21 @@ from localface_studio.domain.faces import DetectedFace
 from localface_studio.infrastructure.image_decoding import decode_bgr_autorotated
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = ROOT / "runtime" / "benchmarks" / "yunet-report.json"
 MEASURED_RUNS = 5
 WARMUP_RUNS = 2
+YUNET_MODEL_ID = "yunet-opencv"
+SUPPORTED_DETECTORS = (YUNET_MODEL_ID, SCRFD_RESEARCH_MODEL_ID)
 
 
 def main() -> None:
     args = parse_args()
     manifest_path = args.manifest.resolve()
     manifest = load_benchmark_manifest(manifest_path)
-    detector = YuNetFaceDetector.from_manifest(
-        ROOT / "config" / "models.json",
-        ROOT,
+    detector_id = args.detector_id or manifest.detector_id
+    detector = load_detector(
+        detector_id,
+        research_license_accepted=args.accept_research_license,
     )
-    if detector.detector_id != manifest.detector_id:
-        raise BenchmarkManifestError("benchmark_detector_mismatch")
 
     case_reports: list[dict[str, Any]] = []
     evaluations: list[CaseEvaluation] = []
@@ -72,12 +77,15 @@ def main() -> None:
             }
         )
 
-    output: Path = args.output.resolve()
+    output = (
+        args.output or ROOT / "runtime" / "benchmarks" / f"{detector.detector_id}-report.json"
+    ).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "schema_version": 1,
         "detector_id": detector.detector_id,
         "manifest": manifest_path.name,
+        "manifest_reference_detector_id": manifest.detector_id,
         "environment": {
             "python": platform.python_version(),
             "opencv": cv2.__version__,
@@ -97,7 +105,7 @@ def main() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Evaluate YuNet without persisting image pixels or face crops."
+        description="Evaluate a local detector without persisting image pixels or face crops."
     )
     parser.add_argument(
         "--manifest",
@@ -108,10 +116,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help="Local JSON report path; defaults under ignored runtime/.",
+        help="Local JSON report path; defaults under ignored runtime/benchmarks/.",
+    )
+    parser.add_argument("--detector-id", choices=SUPPORTED_DETECTORS)
+    parser.add_argument(
+        "--accept-research-license",
+        action="store_true",
+        help="Confirm that a restricted detector is used only for local non-commercial research.",
     )
     return parser.parse_args()
+
+
+def load_detector(detector_id: str, *, research_license_accepted: bool) -> FaceDetector:
+    """Load an allow-listed detector while preserving its license gate."""
+    manifest_path = ROOT / "config" / "models.json"
+    if detector_id == YUNET_MODEL_ID:
+        return YuNetFaceDetector.from_manifest(manifest_path, ROOT)
+    if detector_id == SCRFD_RESEARCH_MODEL_ID:
+        return ScrfdResearchFaceDetector.from_manifest(
+            manifest_path,
+            ROOT,
+            research_license_accepted=research_license_accepted,
+        )
+    raise BenchmarkManifestError("benchmark_detector_unsupported")
 
 
 def summarize(evaluations: list[CaseEvaluation]) -> dict[str, float | int]:

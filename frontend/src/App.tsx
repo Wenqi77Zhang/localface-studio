@@ -26,7 +26,9 @@ type ApiState = 'checking' | 'online' | 'offline'
 type SessionState = 'checking' | 'ready' | 'unavailable'
 type OutputFormat = 'png' | 'jpeg'
 type Retention = '30m' | '1h' | '3h' | '6h' | '12h' | '24h'
-type DetectorId = 'yunet-opencv'
+type DetectorId = 'yunet-opencv' | 'scrfd-insightface-research'
+
+const SCRFD_RESEARCH_MODEL_ID: DetectorId = 'scrfd-insightface-research'
 
 const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
@@ -123,6 +125,7 @@ function App() {
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
   const [detectorId, setDetectorId] = useState<DetectorId>('yunet-opencv')
+  const [scrfdResearchConfirmed, setScrfdResearchConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -139,12 +142,14 @@ function App() {
     csrfToken,
     detectorId,
     file: sourcePhoto,
+    researchLicenseAccepted: scrfdResearchConfirmed,
     role: 'source',
   })
   const targetDetection = useFaceDetection({
     csrfToken,
     detectorId,
     file: targetPhoto,
+    researchLicenseAccepted: scrfdResearchConfirmed,
     role: 'target',
   })
 
@@ -212,6 +217,8 @@ function App() {
   const latestTaskStatus = taskEvent?.status ?? createdTask?.status ?? null
   const taskInProgress =
     latestTaskStatus !== null && !terminalStatuses.has(latestTaskStatus)
+  const researchLicenseReady =
+    detectorId !== SCRFD_RESEARCH_MODEL_ID || scrfdResearchConfirmed
   const canSubmit =
     apiState === 'online' &&
     csrfToken !== null &&
@@ -220,6 +227,7 @@ function App() {
     hasSelectedFace(sourceDetection.state) &&
     hasSelectedFace(targetDetection.state) &&
     authorizationConfirmed &&
+    researchLicenseReady &&
     !taskInProgress &&
     !submitting
   const knownRatios = [sourceRatio, targetRatio].filter(
@@ -229,13 +237,14 @@ function App() {
   const missingRequirements = [
     sourcePhoto === null ? '身份来源图' : null,
     targetPhoto === null ? '目标场景图' : null,
-    sourcePhoto !== null && !hasSelectedFace(sourceDetection.state)
+    sourcePhoto !== null && researchLicenseReady && !hasSelectedFace(sourceDetection.state)
       ? detectionRequirement('身份来源图', sourceDetection.state.status)
       : null,
-    targetPhoto !== null && !hasSelectedFace(targetDetection.state)
+    targetPhoto !== null && researchLicenseReady && !hasSelectedFace(targetDetection.state)
       ? detectionRequirement('目标场景图', targetDetection.state.status)
       : null,
     !authorizationConfirmed ? '授权确认' : null,
+    !researchLicenseReady ? 'SCRFD 非商业研究确认' : null,
     apiState !== 'online' || csrfToken === null ? '本地后端连接' : null,
   ].filter((requirement): requirement is string => requirement !== null)
   const validationMessage =
@@ -345,6 +354,17 @@ function App() {
       setTargetRatio(null)
     }
     setAuthorizationConfirmed(false)
+    setCreatedTask(null)
+    setTaskEvent(null)
+    setEventError(null)
+    setSubmitError(null)
+    setCancelling(false)
+    setWorkflowReset(false)
+  }
+
+  function changeDetector(nextDetectorId: DetectorId) {
+    setDetectorId(nextDetectorId)
+    setScrfdResearchConfirmed(false)
     setCreatedTask(null)
     setTaskEvent(null)
     setEventError(null)
@@ -591,18 +611,47 @@ function App() {
                   value={detectorId}
                   disabled={submitting || taskInProgress}
                   onChange={(event) =>
-                    setDetectorId(event.currentTarget.value as DetectorId)
+                    changeDetector(event.currentTarget.value as DetectorId)
                   }
                 >
                   <option value="yunet-opencv">YuNet（默认，可公开使用）</option>
-                  <option value="scrfd-insightface-research" disabled>
-                    SCRFD · InsightFace（尚未安装，仅限研究）
+                  <option value="scrfd-insightface-research">
+                    SCRFD · InsightFace（实验，仅限非商业研究）
                   </option>
                   <option value="scrfd-custom" disabled>
                     自训练 SCRFD（预留）
                   </option>
                 </select>
               </label>
+              {detectorId === SCRFD_RESEARCH_MODEL_ID && (
+                <div
+                  className={[
+                    'research-license',
+                    validationAttempted && !scrfdResearchConfirmed
+                      ? 'research-license--attention'
+                      : '',
+                  ].join(' ')}
+                >
+                  <strong>研究模型使用限制</strong>
+                  <p>
+                    InsightFace 官方预训练 SCRFD 权重仅限个人学习和非商业研究，不能用于公开商业服务。模型与图片均只在本机处理。
+                  </p>
+                  <label className="checkbox-option research-license__confirm">
+                    <input
+                      type="checkbox"
+                      checked={scrfdResearchConfirmed}
+                      disabled={submitting || taskInProgress}
+                      onChange={(event) =>
+                        setScrfdResearchConfirmed(event.currentTarget.checked)
+                      }
+                    />
+                    <span>我已知晓并确认本次仅用于非商业研究。</span>
+                  </label>
+                  {validationAttempted && !scrfdResearchConfirmed && (
+                    <span className="attention-text">请先确认研究模型使用限制。</span>
+                  )}
+                </div>
+              )}
               <label>
                 <span>输出格式</span>
                 <select

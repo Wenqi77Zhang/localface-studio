@@ -97,7 +97,7 @@ def _is_allowed_origin(origin: str, settings: Settings) -> bool:
         port = parsed.port
     except ValueError:
         return False
-    allowed_ports = FRONTEND_PORTS | {settings.port}
+    allowed_ports = FRONTEND_PORTS | {settings.port, settings.frontend_port}
     return (
         parsed.scheme == "http"
         and parsed.hostname == settings.host

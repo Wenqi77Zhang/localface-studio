@@ -8,6 +8,7 @@ import {
 
 export type FaceDetectionState =
   | { status: 'idle' }
+  | { message: string; status: 'blocked' }
   | { status: 'detecting' }
   | { message: string; status: 'error' }
   | { revision: FaceDetectionRevision; selecting: boolean; status: 'ready' }
@@ -16,6 +17,7 @@ export function useFaceDetection(input: {
   csrfToken: string | null
   detectorId: string
   file: File | null
+  researchLicenseAccepted: boolean
   role: FaceImageRole
 }) {
   const [state, setState] = useState<FaceDetectionState>({ status: 'idle' })
@@ -25,6 +27,16 @@ export function useFaceDetection(input: {
     selectionController.current?.abort()
     if (input.file === null) {
       setState({ status: 'idle' })
+      return
+    }
+    if (
+      input.detectorId === 'scrfd-insightface-research' &&
+      !input.researchLicenseAccepted
+    ) {
+      setState({
+        status: 'blocked',
+        message: '请先在高级设置中确认 SCRFD 非商业研究限制。',
+      })
       return
     }
     if (input.csrfToken === null) {
@@ -37,6 +49,7 @@ export function useFaceDetection(input: {
       csrfToken: input.csrfToken,
       detectorId: input.detectorId,
       file: input.file,
+      researchLicenseAccepted: input.researchLicenseAccepted,
       role: input.role,
       signal: controller.signal,
     })
@@ -52,7 +65,13 @@ export function useFaceDetection(input: {
         }
       })
     return () => controller.abort()
-  }, [input.csrfToken, input.detectorId, input.file, input.role])
+  }, [
+    input.csrfToken,
+    input.detectorId,
+    input.file,
+    input.researchLicenseAccepted,
+    input.role,
+  ])
 
   async function select(detectionId: string) {
     if (

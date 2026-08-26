@@ -1,8 +1,8 @@
 # LocalFace Studio 许可证与资产清单
 
-状态：阶段 3 检测器选型与阶段 2 工程依赖快照
+状态：阶段 3 检测器冻结与阶段 4 换脸模型选型
 
-核验日期：2026-07-24
+核验日期：2026-08-26
 
 > 本清单用于工程风险控制，不构成法律意见。每次锁定或升级依赖时都必须重新生成依赖清单并复核许可证。
 
@@ -91,7 +91,7 @@ InsightFace 官方明确区分：源代码采用 MIT；官方提供或自动下�
 - https://github.com/deepinsight/insightface
 - https://github.com/deepinsight/insightface/blob/master/python-package/README.md#license
 
-当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有后端强制门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace 与 ONNX Runtime 已作为研究用途可选依赖锁定并完成本地 CPU 导入验证；SCRFD 权重仍未下载或登记到生产模型清单，因此网页选项继续保持不可用。
+当前工程只提交不含权重的 `ScrfdResearchFaceDetector` 适配器。该适配器具有前后端双重门禁：必须明确确认研究用途限制，商业模式一律拒绝加载，模型文件还必须先通过清单中的大小和 SHA-256 校验。InsightFace 与 ONNX Runtime 已作为研究用途可选依赖锁定；本地权重已从官方归档提取并登记，但继续由 Git 隔离，不随仓库或安装包分发。
 
 ### SimSwap 的关键限制
 
@@ -143,6 +143,6 @@ SimSwap 官方项目采用 CC BY-NC 4.0，并明确限定学术和非商业用�
 
 - 阶段 1 质量门禁中生成完整传递依赖许可证报告，并人工复核元数据缺失项与 MPL-2.0 分发影响。
 - 阶段 4 核验实际模型官方发布页、哈希和下载机制。
-- 阶段 3 在下载前登记 YuNet 与研究版 SCRFD 的精确文件、官方来源、大小和 SHA-256。
+- 阶段 3 的 YuNet 与研究版 SCRFD 精确文件、官方来源、大小和 SHA-256 已登记并验证。
 - 阶段 5 在选择增强模型前单独核验代码、权重和训练数据三层许可。
 - GitHub 首次公开发布前进行一次仓库资产与许可证扫描。

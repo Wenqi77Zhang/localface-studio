@@ -22,20 +22,22 @@ from localface_studio.infrastructure.config import Settings
 
 LOCAL_ORIGIN = "http://127.0.0.1:5173"
 DETECTOR_ID = "yunet-opencv"
+SCRFD_RESEARCH_MODEL_ID = "scrfd-insightface-research"
 
 
 class FakeDetector:
-    def __init__(self, face_count: int) -> None:
+    def __init__(self, face_count: int, detector_id: str = DETECTOR_ID) -> None:
         self._face_count = face_count
+        self._detector_id = detector_id
         self.seen_bgr: np.ndarray | None = None
 
     @property
     def detector_id(self) -> str:
-        return DETECTOR_ID
+        return self._detector_id
 
     def detect(self, image: np.ndarray) -> tuple[DetectedFace, ...]:
         self.seen_bgr = image.copy()
-        return tuple(_face(index * 30 + 5) for index in range(self._face_count))
+        return tuple(_face(index * 30 + 5, self._detector_id) for index in range(self._face_count))
 
 
 @asynccontextmanager
@@ -216,12 +218,90 @@ def test_new_upload_invalidates_old_revision_and_no_face_is_explicit(
     asyncio.run(scenario())
 
 
-def _face(x: float) -> DetectedFace:
+def test_scrfd_requires_explicit_research_acceptance_before_upload(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        detector = FakeDetector(1, SCRFD_RESEARCH_MODEL_ID)
+        app = create_app(
+            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            face_detectors={SCRFD_RESEARCH_MODEL_ID: detector},
+        )
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            headers = {"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf}
+            missing = await client.post(
+                "/api/v1/face-detections",
+                data={"role": "source", "detector_id": SCRFD_RESEARCH_MODEL_ID},
+                files={"image": ("private.png", png_bytes(), "image/png")},
+                headers=headers,
+            )
+            rejected = await client.post(
+                "/api/v1/face-detections",
+                data={
+                    "role": "source",
+                    "detector_id": SCRFD_RESEARCH_MODEL_ID,
+                    "research_license_accepted": "false",
+                },
+                files={"image": ("private.png", png_bytes(), "image/png")},
+                headers=headers,
+            )
+
+        assert missing.status_code == 403
+        assert missing.json()["code"] == "research_model_license_not_accepted"
+        assert rejected.status_code == 403
+        assert rejected.json()["code"] == "research_model_license_not_accepted"
+        assert detector.seen_bgr is None
+        assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
+
+    asyncio.run(scenario())
+
+
+def test_scrfd_acceptance_is_strict_and_allows_an_explicit_true(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        detector = FakeDetector(1, SCRFD_RESEARCH_MODEL_ID)
+        app = create_app(
+            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            face_detectors={SCRFD_RESEARCH_MODEL_ID: detector},
+        )
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            headers = {"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf}
+            invalid = await client.post(
+                "/api/v1/face-detections",
+                data={
+                    "role": "source",
+                    "detector_id": SCRFD_RESEARCH_MODEL_ID,
+                    "research_license_accepted": "yes",
+                },
+                files={"image": ("private.png", png_bytes(), "image/png")},
+                headers=headers,
+            )
+            accepted = await client.post(
+                "/api/v1/face-detections",
+                data={
+                    "role": "source",
+                    "detector_id": SCRFD_RESEARCH_MODEL_ID,
+                    "research_license_accepted": "true",
+                },
+                files={"image": ("private.png", png_bytes(), "image/png")},
+                headers=headers,
+            )
+
+        assert invalid.status_code == 422
+        assert invalid.json()["code"] == "invalid_detection_form"
+        assert accepted.status_code == 201
+        assert accepted.json()["detector_id"] == SCRFD_RESEARCH_MODEL_ID
+        assert detector.seen_bgr is not None
+        assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
+
+    asyncio.run(scenario())
+
+
+def _face(x: float, detector_id: str = DETECTOR_ID) -> DetectedFace:
     box = FaceBox(x=x, y=4, width=20, height=20)
     landmarks = tuple(FacePoint(x=x + index + 1, y=8 + index) for index in range(5))
     return DetectedFace(
-        detection_id=stable_detection_id(DETECTOR_ID, box, landmarks),
-        detector_id=DETECTOR_ID,
+        detection_id=stable_detection_id(detector_id, box, landmarks),
+        detector_id=detector_id,
         box=box,
         landmarks=landmarks,
         confidence=0.96,
