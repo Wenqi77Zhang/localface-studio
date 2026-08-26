@@ -24,7 +24,7 @@ jobs:
           python-version: "3.14"
       - name: Sync locked Python environment
         run: uv sync --locked --python "$env:pythonLocation\python.exe" --no-managed-python --no-python-downloads
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "24.18.0"
           cache: npm
