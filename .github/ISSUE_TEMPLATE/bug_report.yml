@@ -34,6 +34,12 @@ body:
       options: [native-research, simulation, comfyui]
     validations:
       required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Privacy-safe diagnostics
+      description: Run diagnose.cmd, inspect runtime/diagnostics/localface-diagnostics.json, then attach it or paste its contents. Never attach images or general logs.
+      render: json
   - type: checkboxes
     id: privacy
     attributes:

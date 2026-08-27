@@ -30,7 +30,11 @@
 
 ## 3. 安装诊断
 
-在项目文件夹空白处按住 Shift 单击右键，选择“在终端中打开”，执行：
+直接双击项目根目录的 `diagnose.cmd`。它会检查系统架构、项目运行环境、剩余磁盘空间、端口、模型文件、推理执行器、显卡和驱动，并生成：
+
+`runtime/diagnostics/localface-diagnostics.json`
+
+该报告不包含图片、人脸数据、任务编号、用户名、计算机名或本机路径，可以在反馈故障时人工检查后附上。若需要手动运行同一诊断，可在项目文件夹空白处按住 Shift 单击右键，选择“在终端中打开”，执行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\diagnose.ps1
