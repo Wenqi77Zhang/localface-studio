@@ -48,6 +48,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\diagnose.ps1 -FullMo
 
 `OK` 表示通过，`WARN` 表示仍可继续但需要留意，`FAIL` 必须先修复。端口 8000 或 5173 被占用通常表示旧的 LocalFace Studio 仍在运行，关闭旧终端后重试。
 
+在另一台干净 Windows 电脑做发布复现时，完成 `setup.cmd` 后可双击 `verify-install.cmd`。它会执行完整模型哈希、自动选择空闲的临时回环端口，并验证生产前端、安全响应头、API 代理和服务干净退出；结果写入 `runtime/diagnostics/install-verification.json`。该自动证据不处理图片，也不能代替一次授权真实换脸和人工视觉检查。
+
 ## 4. 启动与关闭
 
 双击 `start.cmd`。准备完成后默认浏览器会打开：

@@ -17,5 +17,6 @@ All notable project changes are recorded here. The project follows semantic vers
 - Added Dependabot, CodeQL, dependency audits and an explicit public-production safety gate.
 - Added geometry-based quality advisories, a full-screen manual inspection flow and keyboard-safe modal focus handling without claiming automatic aesthetic approval.
 - Added one-click privacy-safe Windows diagnostics covering disk space, exact runtime packages, model presence, inference providers, GPU and driver details.
+- Added a one-click clean-install evidence check for full model hashes, production frontend headers, API proxying and clean local-service shutdown.
 
 The stable `v1.0.0` tag remains blocked on final product-owner visual acceptance and independent clean-Windows reproduction.

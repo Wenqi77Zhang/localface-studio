@@ -11,6 +11,7 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 ```powershell
 .\setup.cmd
 .\diagnose.cmd
+.\verify-install.cmd
 .\start.cmd
 ```
 
