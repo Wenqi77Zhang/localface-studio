@@ -41,6 +41,8 @@ function usePreviewUrl(file: File | null): string | null {
 
   useEffect(() => {
     if (file === null) {
+      // Object URLs are synchronized with the selected browser File in this effect.
+      // oxlint-disable-next-line react/set-state-in-effect
       setPreviewUrl(null)
       return
     }

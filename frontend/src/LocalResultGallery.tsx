@@ -50,13 +50,17 @@ export default function LocalResultGallery({
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const previewTriggerRef = useRef<HTMLElement | null>(null)
+  const visibleResults = results.filter(
+    (result) => Date.parse(result.expiresAt) > now,
+  )
+  const activeSelected =
+    selected !== null &&
+    visibleResults.some((result) => result.taskId === selected.taskId)
+      ? selected
+      : null
 
   useEffect(() => {
     if (!enabled) {
-      setResults([])
-      setSelected(null)
-      setError(null)
-      setConfirmTarget(null)
       return
     }
     const controller = new AbortController()
@@ -106,7 +110,7 @@ export default function LocalResultGallery({
   }, [])
 
   useEffect(() => {
-    if (selected === null) {
+    if (activeSelected === null) {
       return
     }
     const previousOverflow = document.body.style.overflow
@@ -143,20 +147,7 @@ export default function LocalResultGallery({
       window.removeEventListener('keydown', closeOnEscape)
       previewTriggerRef.current?.focus()
     }
-  }, [selected])
-
-  const visibleResults = results.filter(
-    (result) => Date.parse(result.expiresAt) > now,
-  )
-
-  useEffect(() => {
-    if (
-      selected !== null &&
-      !visibleResults.some((result) => result.taskId === selected.taskId)
-    ) {
-      setSelected(null)
-    }
-  }, [selected, visibleResults])
+  }, [activeSelected])
 
   function closePreview() {
     setSelected(null)
@@ -295,7 +286,7 @@ export default function LocalResultGallery({
         </div>
       )}
 
-      {selected !== null &&
+      {activeSelected !== null &&
         createPortal(
           <div
             className="result-lightbox"
@@ -324,11 +315,11 @@ export default function LocalResultGallery({
               </button>
               <div className="result-lightbox__image">
                 <img
-                  src={taskResultUrl(selected.taskId)}
-                  alt={`${formattedCompletionTime(selected.completedAt)} 生成的处理结果`}
+                  src={taskResultUrl(activeSelected.taskId)}
+                  alt={`${formattedCompletionTime(activeSelected.completedAt)} 生成的处理结果`}
                 />
               </div>
-              {confirmTarget === selected.taskId ? (
+              {confirmTarget === activeSelected.taskId ? (
                 <div
                   className="result-lightbox__controls result-lightbox__confirmation"
                   role="alert"
@@ -345,7 +336,7 @@ export default function LocalResultGallery({
                     className="danger-action"
                     type="button"
                     disabled={deleting}
-                    onClick={() => void clearResults([selected.taskId])}
+                    onClick={() => void clearResults([activeSelected.taskId])}
                   >
                     {deleting ? '正在清除…' : '确认清除'}
                   </button>
@@ -356,14 +347,14 @@ export default function LocalResultGallery({
                     className="result-clear"
                     type="button"
                     disabled={csrfToken === null || deleting}
-                    onClick={() => setConfirmTarget(selected.taskId)}
+                    onClick={() => setConfirmTarget(activeSelected.taskId)}
                   >
                     清除此结果
                   </button>
                   <a
                     className="result-download"
-                    href={taskResultUrl(selected.taskId)}
-                    download={downloadName(selected)}
+                    href={taskResultUrl(activeSelected.taskId)}
+                    download={downloadName(activeSelected)}
                   >
                     下载结果
                   </a>

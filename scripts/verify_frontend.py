@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -162,24 +163,25 @@ def capture_screenshot(output: Path, frontend_url: str) -> Path:
 
     resolved_output = output.resolve()
     resolved_output.parent.mkdir(parents=True, exist_ok=True)
-    profile = (ROOT / ".tools" / "edge-profile").resolve()
-    profile.mkdir(parents=True, exist_ok=True)
-    completed = subprocess.run(
-        [
-            str(edge),
-            "--headless=new",
-            "--disable-gpu",
-            "--disable-background-networking",
-            "--hide-scrollbars",
-            "--window-size=1440,1000",
-            f"--user-data-dir={profile}",
-            f"--screenshot={resolved_output}",
-            frontend_url,
-        ],
-        check=False,
-        timeout=30,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
+    profile_parent = (ROOT / ".tools").resolve()
+    profile_parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="edge-profile-", dir=profile_parent) as profile:
+        completed = subprocess.run(
+            [
+                str(edge),
+                "--headless=new",
+                "--disable-gpu",
+                "--disable-background-networking",
+                "--hide-scrollbars",
+                "--window-size=1440,1000",
+                f"--user-data-dir={profile}",
+                f"--screenshot={resolved_output}",
+                frontend_url,
+            ],
+            check=False,
+            timeout=30,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
     if completed.returncode != 0 or not resolved_output.is_file():
         raise RuntimeError("Microsoft Edge failed to capture the frontend screenshot.")
     return resolved_output

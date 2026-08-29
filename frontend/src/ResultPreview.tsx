@@ -40,6 +40,8 @@ function ResultPreview({
 
   useEffect(() => {
     const objectUrl = URL.createObjectURL(originalFile)
+    // Object URLs and comparison position synchronize with a new target File.
+    // oxlint-disable-next-line react/set-state-in-effect
     setOriginalUrl(objectUrl)
     setComparisonPosition(DEFAULT_COMPARISON_POSITION)
     return () => URL.revokeObjectURL(objectUrl)
@@ -84,10 +86,6 @@ function ResultPreview({
       inspectionTrigger?.focus()
     }
   }, [inspectionOpen])
-
-  useEffect(() => {
-    setInspectionOpen(false)
-  }, [previewUrl])
 
   function updateComparisonPosition(clientX: number) {
     const bounds = comparisonRef.current?.getBoundingClientRect()

@@ -359,22 +359,17 @@ function App() {
   }, [authorizationConfirmed, createdTask, taskInProgress])
 
   useEffect(() => {
-    if (createdTask === null || latestTaskStatus !== 'succeeded') {
-      setResultLoading(false)
-      setResultError(null)
-      setResultPreviewUrl((current) => {
-        if (current !== null) {
-          URL.revokeObjectURL(current)
-        }
-        return null
-      })
-      return
-    }
     const controller = new AbortController()
     let objectUrl: string | null = null
-    setResultLoading(true)
-    setResultError(null)
     const loadResult = async () => {
+      if (createdTask === null || latestTaskStatus !== 'succeeded') {
+        setResultLoading(false)
+        setResultError(null)
+        setResultPreviewUrl(null)
+        return
+      }
+      setResultLoading(true)
+      setResultError(null)
       try {
         const result = await fetchTaskResult(createdTask.taskId, controller.signal)
         objectUrl = URL.createObjectURL(result)
@@ -878,6 +873,7 @@ function App() {
             latestTaskStatus === 'succeeded' &&
             targetPhoto !== null && (
             <ResultPreview
+              key={createdTask.taskId}
               error={resultError}
               loading={resultLoading}
               originalFile={targetPhoto}

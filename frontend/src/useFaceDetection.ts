@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   detectFaces,
   selectDetectedFace,
@@ -22,28 +22,35 @@ export function useFaceDetection(input: {
 }) {
   const [state, setState] = useState<FaceDetectionState>({ status: 'idle' })
   const selectionController = useRef<AbortController | null>(null)
+  const unavailableState = useMemo<FaceDetectionState | null>(
+    () =>
+      input.file === null
+        ? { status: 'idle' }
+        : input.detectorId === 'scrfd-insightface-research' &&
+            !input.researchLicenseAccepted
+          ? {
+              status: 'blocked',
+              message: '请先在高级设置中确认 SCRFD 非商业研究限制。',
+            }
+          : input.csrfToken === null
+            ? { status: 'error', message: '本地会话尚未就绪，暂时无法检测人物。' }
+            : null,
+    [
+      input.csrfToken,
+      input.detectorId,
+      input.file,
+      input.researchLicenseAccepted,
+    ],
+  )
 
   useEffect(() => {
     selectionController.current?.abort()
-    if (input.file === null) {
-      setState({ status: 'idle' })
-      return
-    }
-    if (
-      input.detectorId === 'scrfd-insightface-research' &&
-      !input.researchLicenseAccepted
-    ) {
-      setState({
-        status: 'blocked',
-        message: '请先在高级设置中确认 SCRFD 非商业研究限制。',
-      })
-      return
-    }
-    if (input.csrfToken === null) {
-      setState({ status: 'error', message: '本地会话尚未就绪，暂时无法检测人物。' })
+    if (unavailableState !== null || input.file === null || input.csrfToken === null) {
       return
     }
     const controller = new AbortController()
+    // This transition is the start of the external detection request synchronized here.
+    // oxlint-disable-next-line react/set-state-in-effect
     setState({ status: 'detecting' })
     void detectFaces({
       csrfToken: input.csrfToken,
@@ -71,11 +78,13 @@ export function useFaceDetection(input: {
     input.file,
     input.researchLicenseAccepted,
     input.role,
+    unavailableState,
   ])
 
   async function select(detectionId: string) {
     if (
       input.csrfToken === null ||
+      unavailableState !== null ||
       state.status !== 'ready' ||
       state.selecting
     ) {
@@ -115,5 +124,5 @@ export function useFaceDetection(input: {
     [],
   )
 
-  return { state, select }
+  return { state: unavailableState ?? state, select }
 }
