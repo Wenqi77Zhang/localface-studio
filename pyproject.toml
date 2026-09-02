@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 native-research = [
     "insightface==1.0.1",
-    "onnxruntime-gpu[cuda,cudnn]==1.26.0",
+    "onnxruntime-gpu[cuda,cudnn]==1.29.0",
 ]
 
 [build-system]
