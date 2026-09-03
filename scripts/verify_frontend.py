@@ -26,6 +26,7 @@ def main() -> None:
     """Run a bounded integration check and optionally capture a screenshot."""
     args = parse_args()
     frontend_url = f"http://{HOST}:{args.frontend_port}/"
+    favicon_url = f"{frontend_url}favicon.svg"
     proxied_health_url = f"{frontend_url}api/v1/health"
     os.environ["LOCALFACE_PORT"] = str(args.backend_port)
     os.environ["LOCALFACE_FRONTEND_PORT"] = str(args.frontend_port)
@@ -81,6 +82,10 @@ def main() -> None:
             if expected not in actual:
                 raise RuntimeError(f"Frontend security header is missing or invalid: {name}")
 
+        favicon, favicon_headers = wait_for_response(favicon_url)
+        if "<svg" not in favicon or "image/svg+xml" not in favicon_headers.get("Content-Type", ""):
+            raise RuntimeError("The local application icon is missing or invalid.")
+
         health_text, _ = wait_for_response(proxied_health_url)
         health = json.loads(health_text)
         if health != {"status": "ok"}:
@@ -88,6 +93,7 @@ def main() -> None:
 
         result: dict[str, object] = {
             "frontend": "ok",
+            "favicon": "ok",
             "api_proxy": "ok",
         }
         if args.screenshot:

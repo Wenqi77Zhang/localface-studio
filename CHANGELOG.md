@@ -19,5 +19,7 @@ All notable project changes are recorded here. The project follows semantic vers
 - Added one-click privacy-safe Windows diagnostics covering disk space, exact runtime packages, model presence, inference providers, GPU and driver details.
 - Added a one-click clean-install evidence check for full model hashes, production frontend headers, API proxying and clean local-service shutdown.
 - Updated the frontend build toolchain, resolved newly detected React effect warnings, isolated result state by task, and made Edge visual verification profiles disposable.
+- Added a local SVG application icon and production smoke verification so the browser no longer emits a favicon 404.
+- Completed a real-Edge release-candidate walkthrough and documented the remaining frozen-requirement, quality, performance and release blockers without overstating readiness.
 
 The stable `v1.0.0` tag remains blocked on final product-owner visual acceptance and independent clean-Windows reproduction.
