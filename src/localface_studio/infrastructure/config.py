@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     frontend_port: int = Field(default=5173, ge=1024, le=65535)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     runtime_directory: Path = Path("runtime")
-    workflow_backend: Literal["comfyui", "native-research", "simulation"] = "simulation"
+    workflow_backend: Literal["comfyui", "native-research", "simulation"] = "native-research"
     task_timeout_seconds: int = Field(default=300, ge=30, le=1800)
     comfyui_url: str = "http://127.0.0.1:8188"
     comfyui_workflow_path: Path = Path("config/comfyui-workflow.json")

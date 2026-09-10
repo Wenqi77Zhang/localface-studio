@@ -43,6 +43,7 @@ from localface_studio.backends.comfyui import (
 from localface_studio.backends.native_research import (
     INSWAPPER_RESEARCH_MODEL_ID,
     NATIVE_RESEARCH_BACKEND_ID,
+    RESEARCH_SWAP_MODEL_IDS,
     NativeResearchBackend,
 )
 from localface_studio.backends.scrfd import (
@@ -176,6 +177,9 @@ def create_app(
         task_selection_verifier,
         workflow_backend_id=workflow_backend_id,
         swap_model_id=swap_model_id,
+        allowed_swap_model_ids=RESEARCH_SWAP_MODEL_IDS
+        if workflow_backend_id == NATIVE_RESEARCH_BACKEND_ID
+        else None,
     )
     application.state.task_events = events
     application.state.task_queue = task_queue

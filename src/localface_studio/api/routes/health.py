@@ -3,7 +3,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -12,10 +12,17 @@ class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
 
 
+class SwapModelCapability(BaseModel):
+    id: str
+    available: bool
+    native_resolution: int
+
+
 class CapabilitiesResponse(BaseModel):
     """Public product readiness without local paths or device identifiers."""
 
     workflow_backend: Literal["comfyui", "native-research", "simulation"]
+    swap_models: list[SwapModelCapability] = Field(default_factory=list)
     model_files_present: bool
     model_integrity_verified: bool
     runtime_loaded: bool

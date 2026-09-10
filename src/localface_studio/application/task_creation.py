@@ -34,6 +34,10 @@ class TaskLimitExceededError(RuntimeError):
     """Raised when one actor already owns the allowed unfinished task count."""
 
 
+class UnsupportedSwapModelError(ValueError):
+    """Reject a model outside the explicitly installed backend registry."""
+
+
 @dataclass(frozen=True, slots=True)
 class CreatedTask:
     """New queued task and its privacy-safe image facts."""
@@ -57,6 +61,7 @@ class TaskCreationService:
         *,
         workflow_backend_id: str = "simulation",
         swap_model_id: str | None = None,
+        allowed_swap_model_ids: frozenset[str] | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self._repository = repository
@@ -64,6 +69,9 @@ class TaskCreationService:
         self._selection_verifier = selection_verifier
         self._workflow_backend_id = workflow_backend_id
         self._swap_model_id = swap_model_id
+        self._allowed_swap_model_ids = allowed_swap_model_ids or frozenset(
+            {swap_model_id} if swap_model_id else (),
+        )
         self._clock = clock
         self._creation_lock = Lock()
 
@@ -84,10 +92,16 @@ class TaskCreationService:
         source_detection_id: str,
         target_revision_id: str,
         target_detection_id: str,
+        swap_model_id: str | None = None,
     ) -> CreatedTask:
         """Create one queued task or leave neither files nor metadata behind."""
         if not authorization_confirmed:
             raise AuthorizationRequiredError("Image authorization must be confirmed.")
+        selected_model_id = swap_model_id or self._swap_model_id
+        if swap_model_id is not None and swap_model_id not in self._allowed_swap_model_ids:
+            raise UnsupportedSwapModelError(
+                "The selected swap model is not supported by this backend."
+            )
         if (
             self._workflow_backend_id == "native-research"
             and research_model_license_accepted is not True
@@ -129,7 +143,7 @@ class TaskCreationService:
                     source_detection_id=selection.source_detection_id,
                     target_detection_id=selection.target_detection_id,
                     workflow_backend_id=self._workflow_backend_id,
-                    swap_model_id=self._swap_model_id,
+                    swap_model_id=selected_model_id,
                     research_model_license_accepted=research_model_license_accepted,
                 )
                 self._repository.create(task)

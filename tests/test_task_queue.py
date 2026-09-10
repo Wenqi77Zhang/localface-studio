@@ -41,6 +41,16 @@ def make_repository(tmp_path: Path) -> SqliteTaskRepository:
     return repository
 
 
+def test_event_history_is_bounded_across_tasks_and_does_not_create_subscribers() -> None:
+    events = TaskEventBroker(task_limit=2)
+    for index in range(50):
+        events.publish(make_task(f"task-{index}"))
+    assert len(events._history) == 2
+    assert len(events._subscribers) == 0
+    assert events.history("task-0") == ()
+    assert len(events.history("task-49")) == 1
+
+
 class TrackingBackend:
     def __init__(self) -> None:
         self.active = 0

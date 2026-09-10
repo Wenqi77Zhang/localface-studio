@@ -1,10 +1,26 @@
 """Deterministic, model-free post-processing presets for a selected face."""
 
+from dataclasses import replace
+
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
 from localface_studio.domain.faces import DetectedFace
+
+
+class ColorHarmonizationEnhancer:
+    """Conservative colour correction, explicitly not generative face restoration."""
+
+    enhancer_id = "local-color-harmonization-v2"
+
+    def enhance(
+        self,
+        target: NDArray[np.uint8],
+        base: NDArray[np.uint8],
+        target_face: DetectedFace,
+    ) -> NDArray[np.uint8]:
+        return harmonize_face_color(target, base, target_face)
 
 
 def harmonize_face_color(
@@ -25,13 +41,22 @@ def harmonize_face_color(
         return swapped.copy()
 
     height, width = target.shape[:2]
-    mask = face_blend_mask(width, height, face)
+    # Work on a bounded face ROI, not multiple floating-point copies of a 24 MP photo.
+    box = face.box
+    pad = max(box.width, box.height) * 0.3 + 4
+    x0, y0 = max(0, int(box.x - pad)), max(0, int(box.y - pad))
+    x1 = min(width, int(np.ceil(box.x + box.width + pad)))
+    y1 = min(height, int(np.ceil(box.y + box.height + pad)))
+    if x1 <= x0 or y1 <= y0:
+        return swapped.copy()
+    local_face = replace(face, box=replace(box, x=box.x - x0, y=box.y - y0))
+    mask = face_blend_mask(x1 - x0, y1 - y0, local_face)
     core = mask >= 0.8
     if np.count_nonzero(core) < 16:
         return swapped.copy()
 
-    target_lab = cv2.cvtColor(target, cv2.COLOR_BGR2LAB).astype(np.float32)
-    swapped_lab = cv2.cvtColor(swapped, cv2.COLOR_BGR2LAB).astype(np.float32)
+    target_lab = cv2.cvtColor(target[y0:y1, x0:x1], cv2.COLOR_BGR2LAB).astype(np.float32)
+    swapped_lab = cv2.cvtColor(swapped[y0:y1, x0:x1], cv2.COLOR_BGR2LAB).astype(np.float32)
     target_center = np.median(target_lab[core], axis=0)
     swapped_center = np.median(swapped_lab[core], axis=0)
     shift = np.clip(target_center - swapped_center, (-10, -6, -6), (10, 6, 6))
@@ -40,8 +65,10 @@ def harmonize_face_color(
     harmonized_lab = np.clip(harmonized_lab, 0, 255).astype(np.uint8)
     converted = cv2.cvtColor(harmonized_lab, cv2.COLOR_LAB2BGR)
     result = swapped.copy()
-    active = mask >= 0.001
-    result[active] = converted[active]
+    # Do not colour untouched background or neighbouring faces merely inside an ellipse.
+    changed = np.any(target[y0:y1, x0:x1] != swapped[y0:y1, x0:x1], axis=2)
+    active = (mask >= 0.001) & changed
+    result[y0:y1, x0:x1][active] = converted[active]
     return result
 
 

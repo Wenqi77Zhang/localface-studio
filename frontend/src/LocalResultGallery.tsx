@@ -4,7 +4,9 @@ import {
   deleteTaskResult,
   listAvailableResults,
   taskResultUrl,
+  taskThumbnailUrl,
   type AvailableResult,
+  type ResultVariant,
 } from './api'
 
 const RESULT_SYNC_INTERVAL_MS = 15_000
@@ -28,8 +30,8 @@ function formattedCompletionTime(completedAt: string): string {
   }).format(new Date(completedAt))
 }
 
-function downloadName(result: AvailableResult): string {
-  return `localface-simulation-${result.taskId.slice(0, 8)}.${
+function downloadName(result: AvailableResult, variant: ResultVariant): string {
+  return `localface-${result.workflowBackend === 'simulation' ? 'simulation-' : ''}${variant}-${result.taskId.slice(0, 8)}.${
     result.outputFormat === 'jpeg' ? 'jpg' : 'png'
   }`
 }
@@ -42,6 +44,7 @@ export default function LocalResultGallery({
 }: LocalResultGalleryProps) {
   const [results, setResults] = useState<AvailableResult[]>([])
   const [selected, setSelected] = useState<AvailableResult | null>(null)
+  const [variant, setVariant] = useState<ResultVariant>('final')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -157,6 +160,7 @@ export default function LocalResultGallery({
   function openPreview(result: AvailableResult) {
     previewTriggerRef.current = document.activeElement as HTMLElement | null
     setSelected(result)
+    setVariant(result.variants.at(-1) ?? 'final')
   }
 
   async function clearResults(taskIds: string[]) {
@@ -214,7 +218,7 @@ export default function LocalResultGallery({
           )}
         </div>
       </div>
-      <p className="local-results__order">按生成时间倒序排列 · 最新结果在前</p>
+      <p className="local-results__order">按生成时间倒序排列 · 最新结果在前 · 双版本归为一组</p>
 
       {confirmTarget === 'all' && (
         <div className="local-results__confirmation" role="alert">
@@ -267,7 +271,7 @@ export default function LocalResultGallery({
                   onClick={() => openPreview(result)}
                 >
                   <img
-                    src={taskResultUrl(result.taskId)}
+                    src={taskThumbnailUrl(result.taskId)}
                     alt=""
                     loading="lazy"
                   />
@@ -275,6 +279,7 @@ export default function LocalResultGallery({
                 <time dateTime={result.completedAt}>
                   {formattedCompletionTime(result.completedAt)}
                 </time>
+                {result.variants.length > 1 && <span className="local-result-card__versions">基础 + 优化</span>}
                 {expiresSoon && (
                   <span className="local-result-card__expiry">
                     剩余时间不足 10 分钟
@@ -315,7 +320,7 @@ export default function LocalResultGallery({
               </button>
               <div className="result-lightbox__image">
                 <img
-                  src={taskResultUrl(activeSelected.taskId)}
+                  src={taskResultUrl(activeSelected.taskId, variant)}
                   alt={`${formattedCompletionTime(activeSelected.completedAt)} 生成的处理结果`}
                 />
               </div>
@@ -324,7 +329,7 @@ export default function LocalResultGallery({
                   className="result-lightbox__controls result-lightbox__confirmation"
                   role="alert"
                 >
-                  <span>将同时清除关联上传副本，且无法恢复。</span>
+                  <span>将清除此任务的全部结果版本，且无法恢复；已下载文件不受影响。</span>
                   <button
                     type="button"
                     disabled={deleting}
@@ -343,18 +348,22 @@ export default function LocalResultGallery({
                 </div>
               ) : (
                 <div className="result-lightbox__controls result-lightbox__actions">
+                  {activeSelected.variants.length > 1 && <select aria-label="选择大图版本"
+                    value={variant} onChange={(event) => setVariant(event.currentTarget.value as ResultVariant)}>
+                    <option value="base">基础版</option><option value="enhanced">色彩优化版</option>
+                  </select>}
                   <button
                     className="result-clear"
                     type="button"
                     disabled={csrfToken === null || deleting}
                     onClick={() => setConfirmTarget(activeSelected.taskId)}
                   >
-                    清除此结果
+                    {activeSelected.variants.length > 1 ? '清除此组结果' : '清除此结果'}
                   </button>
                   <a
                     className="result-download"
-                    href={taskResultUrl(activeSelected.taskId)}
-                    download={downloadName(activeSelected)}
+                    href={taskResultUrl(activeSelected.taskId, variant)}
+                    download={downloadName(activeSelected, variant)}
                   >
                     下载结果
                   </a>

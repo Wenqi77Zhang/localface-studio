@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections import defaultdict, deque
+from collections import OrderedDict, defaultdict, deque
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -79,19 +79,25 @@ class TaskEvent:
 class TaskEventBroker:
     """Keep bounded event history and fan out live updates without persistence."""
 
-    def __init__(self, *, history_size: int = 64, subscriber_size: int = 64) -> None:
-        if min(history_size, subscriber_size) < 1:
+    def __init__(
+        self, *, history_size: int = 64, subscriber_size: int = 64, task_limit: int = 256
+    ) -> None:
+        if min(history_size, subscriber_size, task_limit) < 1:
             raise ValueError("event buffer sizes must be positive")
         self._history_size = history_size
         self._subscriber_size = subscriber_size
-        self._history: dict[str, deque[TaskEvent]] = {}
+        self._task_limit = task_limit
+        self._history: OrderedDict[str, deque[TaskEvent]] = OrderedDict()
         self._subscribers: dict[str, set[asyncio.Queue[TaskEvent]]] = defaultdict(set)
 
     def publish(self, task: TaskRecord) -> TaskEvent:
         event = TaskEvent.from_record(task)
         history = self._history.setdefault(task.task_id, deque(maxlen=self._history_size))
         history.append(event)
-        for subscriber in tuple(self._subscribers[task.task_id]):
+        self._history.move_to_end(task.task_id)
+        while len(self._history) > self._task_limit:
+            self._history.popitem(last=False)
+        for subscriber in tuple(self._subscribers.get(task.task_id, ())):
             if subscriber.full():
                 subscriber.get_nowait()
             subscriber.put_nowait(event)

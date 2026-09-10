@@ -4,9 +4,11 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from datetime import datetime
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, status
+from PIL import Image
 from pydantic import BaseModel
 from starlette.datastructures import FormData, UploadFile
 from starlette.responses import FileResponse, JSONResponse, Response, StreamingResponse
@@ -19,6 +21,7 @@ from localface_studio.application.task_creation import (
     ResearchModelLicenseRequiredError,
     TaskCreationService,
     TaskLimitExceededError,
+    UnsupportedSwapModelError,
     utc_now,
 )
 from localface_studio.application.task_queue import (
@@ -32,6 +35,7 @@ from localface_studio.domain.images import ImageUploadError, ValidatedImage
 from localface_studio.domain.tasks import (
     OutputFormat,
     QualityPreset,
+    ResultVariant,
     RetentionOption,
     TaskRecord,
     TaskStatus,
@@ -81,12 +85,20 @@ class AvailableResultResponse(BaseModel):
     completed_at: datetime
     expires_at: datetime
     output_format: str
+    variants: list[ResultVariant]
+    workflow_backend: str
+
+
+class ResultArtifactsResponse(BaseModel):
+    variants: list[ResultVariant]
+    workflow_backend: str
+    metrics: dict[str, float | int | None]
 
 
 @router.post("/tasks", response_model=CreatedTaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
     """Validate exactly two images and create one actor-owned queued task."""
-    async with request.form(max_files=2, max_fields=11, max_part_size=16 * 1024) as form:
+    async with request.form(max_files=2, max_fields=12, max_part_size=16 * 1024) as form:
         try:
             source = _upload(form, "source")
             target = _upload(form, "target")
@@ -100,6 +112,7 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 _text(form, "quality_preset", QualityPreset.BALANCED.value)
             )
             watermark_enabled = _boolean(form, "watermark_enabled", True)
+            swap_model_id = _text(form, "swap_model_id", "") or None
             retention = RetentionOption(
                 _text(form, "retention", RetentionOption.THIRTY_MINUTES.value)
             )
@@ -127,6 +140,11 @@ async def create_task(request: Request) -> CreatedTaskResponse | JSONResponse:
                 source_detection_id=source_detection_id,
                 target_revision_id=target_revision_id,
                 target_detection_id=target_detection_id,
+                swap_model_id=swap_model_id,
+            )
+        except UnsupportedSwapModelError as error:
+            return _error(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "swap_model_unsupported", str(error)
             )
         except AuthorizationRequiredError as error:
             return _error(
@@ -189,6 +207,8 @@ def list_available_results(
             completed_at=task.updated_at,
             expires_at=task.expires_at,
             output_format=task.output_format.value,
+            variants=workspaces.result_variants(task.task_id, task.output_format),
+            workflow_backend=task.workflow_backend_id,
         )
         for task in results
         if workspaces.result_path(task.task_id, task.output_format).is_file()
@@ -262,15 +282,19 @@ async def stream_task_events(
 
 
 @router.get("/tasks/{task_id}/result", response_model=None)
-def download_result(task_id: str, request: Request) -> FileResponse | JSONResponse:
+def download_result(
+    task_id: str,
+    request: Request,
+    variant: ResultVariant = ResultVariant.FINAL,
+) -> FileResponse | JSONResponse:
     """Download a successful result through a fixed server-controlled path."""
     task = _owned_task(task_id, request)
     if task is None:
         return _not_found()
-    if task.status is not TaskStatus.SUCCEEDED:
+    if task.status is not TaskStatus.SUCCEEDED or task.expires_at <= utc_now():
         return _error(status.HTTP_409_CONFLICT, "result_not_ready", "Result is not available.")
     workspaces: TaskWorkspaceStore = request.app.state.task_workspaces
-    result_path = workspaces.result_path(task.task_id, task.output_format)
+    result_path = workspaces.result_path(task.task_id, task.output_format, variant)
     if not result_path.is_file():
         return _error(status.HTTP_409_CONFLICT, "result_missing", "Result is not available.")
     media_type = "image/jpeg" if task.output_format is OutputFormat.JPEG else "image/png"
@@ -278,9 +302,67 @@ def download_result(task_id: str, request: Request) -> FileResponse | JSONRespon
     return FileResponse(
         path=result_path,
         media_type=media_type,
-        filename=f"localface-result.{suffix}",
+        filename=f"localface-{variant.value}.{suffix}",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.get("/tasks/{task_id}/artifacts", response_model=ResultArtifactsResponse)
+def result_artifacts(task_id: str, request: Request) -> ResultArtifactsResponse | JSONResponse:
+    task = _owned_task(task_id, request)
+    if task is None:
+        return _not_found()
+    if task.status is not TaskStatus.SUCCEEDED or task.expires_at <= utc_now():
+        return _error(409, "result_not_ready", "Result is not available.")
+    workspaces: TaskWorkspaceStore = request.app.state.task_workspaces
+    metrics: dict[str, float | int | None] = {}
+    path = workspaces.metrics_path(task_id)
+    if path.is_file():
+        try:
+            parsed = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                allowed = {
+                    "duration_ms",
+                    "rss_start_mb",
+                    "rss_end_mb",
+                    "rss_peak_mb",
+                    "device_vram_peak_mb",
+                    "resource_samples",
+                }
+                metrics = {
+                    key: value
+                    for key, value in parsed.items()
+                    if key in allowed and (value is None or type(value) in (int, float))
+                }
+        except OSError, ValueError:
+            pass
+    return ResultArtifactsResponse(
+        variants=workspaces.result_variants(task_id, task.output_format),
+        workflow_backend=task.workflow_backend_id,
+        metrics=metrics,
+    )
+
+
+@router.get("/tasks/{task_id}/thumbnail", response_model=None)
+def result_thumbnail(
+    task_id: str,
+    request: Request,
+    variant: ResultVariant = ResultVariant.FINAL,
+) -> Response:
+    """Bounded thumbnails avoid loading every full-resolution result into the gallery."""
+    result = download_result(task_id, request, variant)
+    if isinstance(result, JSONResponse):
+        return result
+    try:
+        with Image.open(result.path) as image:
+            image.thumbnail((480, 320), Image.Resampling.LANCZOS)
+            buffer = BytesIO()
+            image.convert("RGB").save(buffer, format="JPEG", quality=80)
+        return Response(
+            buffer.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "no-store"}
+        )
+    except OSError, ValueError:
+        return _error(409, "result_missing", "Result is not available.")
 
 
 @router.delete(
@@ -293,14 +375,19 @@ def delete_task(task_id: str, request: Request) -> Response | JSONResponse:
     task = _owned_task(task_id, request)
     if task is None:
         return _not_found()
-    if task.status is TaskStatus.DELETED:
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
     if task.status not in TERMINAL_STATUSES:
         return _error(
             status.HTTP_409_CONFLICT,
             "task_not_terminal",
             "Cancel the task before deleting it.",
         )
+    workspaces: TaskWorkspaceStore = request.app.state.task_workspaces
+    try:
+        workspaces.remove(task.task_id)
+    except OSError:
+        return _error(503, "cleanup_pending", "Files are busy. Please retry deletion.")
+    if task.status is TaskStatus.DELETED:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     deleted = transition_task(
         task,
         TaskStatus.DELETED,
@@ -309,8 +396,6 @@ def delete_task(task_id: str, request: Request) -> Response | JSONResponse:
     )
     repository: TaskRepository = request.app.state.task_repository
     repository.save(deleted, expected_version=task.version)
-    workspaces: TaskWorkspaceStore = request.app.state.task_workspaces
-    workspaces.remove(task.task_id)
     events: TaskEventBroker = request.app.state.task_events
     events.publish(deleted)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -2,6 +2,24 @@
   "schema_version": 1,
   "models": [
     {
+      "id": "alphaface-256-research",
+      "role": "face_swapper",
+      "version": "facefusion-models-3.9.0-20260903",
+      "filename": "alphaface_256.onnx",
+      "relative_path": "models/swappers/alphaface/alphaface_256.onnx",
+      "source_url": "https://github.com/facefusion/facefusion-assets/releases/download/models-3.9.0/alphaface_256.onnx",
+      "source_repository": "https://github.com/andrewyu90/Alphaface_Official",
+      "converter_repository": "https://github.com/facefusion/facefusion",
+      "license": "Original code MIT; converted weight marked non-commercial by distributor; ArcFace dependency research-only",
+      "license_url": "https://github.com/facefusion/facefusion/blob/3.9.0/facefusion/processors/modules/face_swapper/core.py",
+      "sha256": "efcca3ffa1c28b75a007f689b39f7d4716c02810e7fa72d892e175f0b058a2e2",
+      "size_bytes": 555624110,
+      "digest_source": "GitHub release asset SHA256, checked 2026-09-10",
+      "distribution": "download-separately",
+      "commercial_mode_allowed": false,
+      "runtime": {"adapter": "alphaface-onnx", "input_size": [256, 256]}
+    },
+    {
       "id": "yunet-opencv",
       "role": "face_detector",
       "version": "2026may",

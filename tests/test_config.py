@@ -8,6 +8,7 @@ from localface_studio.infrastructure.config import Settings
 
 def test_default_host_is_loopback() -> None:
     assert Settings().host == "127.0.0.1"
+    assert Settings().workflow_backend == "native-research"
 
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.8", "8.8.8.8"])

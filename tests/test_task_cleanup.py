@@ -4,6 +4,8 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from localface_studio.application.task_cleanup import TaskCleanupService
 from localface_studio.domain.tasks import (
     OutputFormat,
@@ -122,6 +124,41 @@ def test_periodic_cleanup_expires_due_result_and_stops_promptly(tmp_path: Path) 
         assert workspaces.list_task_ids() == ()
 
     asyncio.run(scenario())
+
+
+def test_expiry_retries_busy_files_instead_of_forgetting_them(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime.now(UTC)
+    repository = SqliteTaskRepository(tmp_path / "tasks.sqlite3")
+    repository.initialize()
+    workspaces = TaskWorkspaceStore(tmp_path / "tasks")
+    due = create_task(
+        repository,
+        identifier=task_id("busy"),
+        created_at=now - timedelta(hours=2),
+        expires_at=now - timedelta(hours=1),
+        status=TaskStatus.SUCCEEDED,
+    )
+    workspaces.create(due.task_id)
+    remove = workspaces.remove
+    attempts = 0
+
+    def busy_once(identifier: str) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise PermissionError("file busy")
+        remove(identifier)
+
+    monkeypatch.setattr(workspaces, "remove", busy_once)
+    cleanup = TaskCleanupService(repository, workspaces, clock=lambda: now)
+    cleanup.expire_due()
+    assert repository.list_due_for_expiry(now) == [due]
+    cleanup.expire_due()
+    assert repository.list_due_for_expiry(now) == []
+    assert workspaces.list_task_ids() == ()
 
 
 def test_success_cleanup_preserves_only_result(tmp_path: Path) -> None:

@@ -117,11 +117,12 @@ foreach ($Port in 8000, 5173) {
 $ManifestPath = Join-Path $Root "config\models.json"
 if (Test-Path -LiteralPath $ManifestPath) {
     $Manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $SwapModelIds = @("inswapper-128-research", "alphaface-256-research")
+    $UsableSwappers = 0
     foreach ($Model in $Manifest.models) {
         $ModelPath = Join-Path $Root ([string]$Model.relative_path)
         $Required = $Model.id -in @(
             "yunet-opencv",
-            "inswapper-128-research",
             "arcface-w600k-r50-research"
         )
         if (-not (Test-Path -LiteralPath $ModelPath)) {
@@ -146,6 +147,13 @@ if (Test-Path -LiteralPath $ManifestPath) {
         else {
             Write-Check ("Model " + $Model.id) "OK" "size verified; use -FullModelHash for SHA-256"
         }
+        if ($Model.id -in $SwapModelIds) { $UsableSwappers += 1 }
+    }
+    if ($UsableSwappers -gt 0) {
+        Write-Check "Face swapper choice" "OK" "at least one supported swapper is installed"
+    }
+    else {
+        Write-Check "Face swapper choice" "FAIL" "install InSwapper or AlphaFace separately"
     }
 }
 else {

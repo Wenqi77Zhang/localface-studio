@@ -75,7 +75,11 @@ def test_single_face_is_auto_selected_and_pixels_are_deleted(tmp_path: Path) -> 
     async def scenario() -> None:
         detector = FakeDetector(1)
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={DETECTOR_ID: detector},
         )
         async with running_client(app) as client:
@@ -111,7 +115,11 @@ def test_exif_orientation_controls_detector_pixels_and_response_geometry(tmp_pat
     async def scenario() -> None:
         detector = FakeDetector(1)
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={DETECTOR_ID: detector},
         )
         async with running_client(app) as client:
@@ -137,7 +145,11 @@ def test_multi_face_selection_is_actor_isolated_and_revision_specific(
 ) -> None:
     async def scenario() -> None:
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={DETECTOR_ID: FakeDetector(2)},
         )
         async with running_client(app) as owner:
@@ -189,7 +201,11 @@ def test_new_upload_invalidates_old_revision_and_no_face_is_explicit(
 ) -> None:
     async def scenario() -> None:
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={DETECTOR_ID: FakeDetector(0)},
         )
         async with running_client(app) as client:
@@ -222,7 +238,11 @@ def test_scrfd_requires_explicit_research_acceptance_before_upload(tmp_path: Pat
     async def scenario() -> None:
         detector = FakeDetector(1, SCRFD_RESEARCH_MODEL_ID)
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={SCRFD_RESEARCH_MODEL_ID: detector},
         )
         async with running_client(app) as client:
@@ -259,7 +279,11 @@ def test_scrfd_acceptance_is_strict_and_allows_an_explicit_true(tmp_path: Path) 
     async def scenario() -> None:
         detector = FakeDetector(1, SCRFD_RESEARCH_MODEL_ID)
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             face_detectors={SCRFD_RESEARCH_MODEL_ID: detector},
         )
         async with running_client(app) as client:

@@ -72,7 +72,7 @@ class FakeSwapper:
         paste_back: bool,
     ) -> np.ndarray:
         assert paste_back is True
-        assert target_face.normed_embedding is not None
+        assert not hasattr(target_face, "normed_embedding")
         assert source_face.normed_embedding is not None
         result = image.copy()
         result[2:10, 2:10] = (10, 40, 90)
@@ -138,7 +138,7 @@ def test_native_backend_exports_selected_swap_and_disclosure(
         tmp_path,
     )
     monkeypatch.setattr(
-        backend,
+        backend._swapper,
         "_load_models",
         lambda: (FakeRecognizer(), FakeSwapper(), ("CUDAExecutionProvider",)),
     )
@@ -162,6 +162,7 @@ def test_native_backend_exports_selected_swap_and_disclosure(
         WorkflowNode.VALIDATE,
         WorkflowNode.PREPARE,
         WorkflowNode.SWAP,
+        WorkflowNode.ENHANCE,
         WorkflowNode.INSPECT,
         WorkflowNode.EXPORT,
     ]
@@ -181,12 +182,12 @@ def test_native_backend_rebuilds_cpu_models_after_gpu_inference_failure(
         tmp_path,
     )
     monkeypatch.setattr(
-        backend,
+        backend._swapper,
         "_load_models",
         lambda: (FakeRecognizer(fail=True), FakeSwapper(), ("CUDAExecutionProvider",)),
     )
     monkeypatch.setattr(
-        backend,
+        backend._swapper,
         "_cpu_models",
         lambda: (FakeRecognizer(), FakeSwapper(), ("CPUExecutionProvider",)),
     )
@@ -276,7 +277,23 @@ def test_native_capabilities_check_files_without_loading_models(tmp_path: Path) 
             "runtime_load_pending",
             "research_only",
         ],
+        "swap_models": [
+            {"id": "inswapper-128-research", "available": True, "native_resolution": 128},
+            {"id": "alphaface-256-research", "available": False, "native_resolution": 256},
+        ],
     }
 
     (tmp_path / "models" / "swapper.onnx").write_bytes(b"wrong size")
     assert backend.capabilities()["model_files_present"] is False
+
+    # An AlphaFace-only installation must not be blocked by the missing baseline.
+    alpha_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    alpha_manifest["models"][1]["id"] = "alphaface-256-research"
+    manifest_path.write_text(json.dumps(alpha_manifest), encoding="utf-8")
+    (tmp_path / "models" / "swapper.onnx").write_bytes(swapper)
+    snapshot = backend.capabilities()
+    assert snapshot["model_files_present"] is True
+    assert snapshot["swap_models"] == [
+        {"id": "inswapper-128-research", "available": False, "native_resolution": 128},
+        {"id": "alphaface-256-research", "available": True, "native_resolution": 256},
+    ]

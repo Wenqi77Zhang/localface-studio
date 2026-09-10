@@ -149,7 +149,13 @@ def test_task_creation_persists_minimal_metadata_and_only_canonical_result(
     tmp_path: Path,
 ) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        app = create_app(
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            )
+        )
         async with running_client(app) as client:
             csrf = await establish_session(client)
             data, files = task_form(
@@ -202,7 +208,13 @@ def test_task_creation_persists_minimal_metadata_and_only_canonical_result(
 
 def test_authorization_and_invalid_image_fail_without_task_artifacts(tmp_path: Path) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        app = create_app(
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            )
+        )
         async with running_client(app) as client:
             csrf = await establish_session(client)
             denied_data, denied_files = task_form(authorization="false")
@@ -283,11 +295,37 @@ def test_native_task_requires_explicit_research_model_acceptance(tmp_path: Path)
     asyncio.run(scenario())
 
 
+def test_unknown_swap_model_is_rejected_before_persisting_images(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        async with running_client(app) as client:
+            csrf = await establish_session(client)
+            data, files = task_form()
+            data["swap_model_id"] = "untrusted-model"
+            data["research_model_license_accepted"] = "true"
+            response = await client.post(
+                "/api/v1/tasks",
+                data=data,
+                files=files,
+                headers={"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf},
+            )
+        assert response.status_code == 422
+        assert response.json()["code"] == "swap_model_unsupported"
+        assert app.state.task_repository.list_all() == []
+        assert list((tmp_path / "runtime" / "tasks").iterdir()) == []
+
+    asyncio.run(scenario())
+
+
 def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> None:
     async def scenario() -> None:
         backend = BlockingBackend()
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             workflow_backend=backend,
         )
         async with running_client(app) as client:
@@ -315,7 +353,13 @@ def test_fourth_unfinished_task_is_rejected_for_same_session(tmp_path: Path) -> 
 
 def test_task_rejects_changed_image_and_removes_workspace(tmp_path: Path) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        app = create_app(
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            )
+        )
         async with running_client(app) as client:
             csrf = await establish_session(client)
             data, files = task_form()
@@ -342,7 +386,13 @@ def test_task_rejects_changed_image_and_removes_workspace(tmp_path: Path) -> Non
 
 def test_task_request_requires_bounded_multipart_content_length(tmp_path: Path) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        app = create_app(
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            )
+        )
         async with running_client(app) as client:
             csrf = await establish_session(client)
             common_headers = {"Origin": LOCAL_ORIGIN, CSRF_HEADER: csrf}

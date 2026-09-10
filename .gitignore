@@ -33,6 +33,7 @@ coverage/
 playwright-report/
 test-results/
 output/playwright/
+.playwright-cli/
 
 # AI models and binary checkpoints
 models/

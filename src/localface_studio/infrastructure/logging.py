@@ -9,7 +9,19 @@ from datetime import UTC, datetime
 
 LOGGER_NAME = "localface"
 SAFE_FIELDS = frozenset(
-    {"duration_ms", "error_type", "method", "request_id", "route", "status_code"}
+    {
+        "duration_ms",
+        "error_type",
+        "method",
+        "request_id",
+        "route",
+        "status_code",
+        "rss_start_mb",
+        "rss_end_mb",
+        "rss_peak_mb",
+        "device_vram_peak_mb",
+        "resource_samples",
+    }
 )
 _WINDOWS_USER_PATH = re.compile(r"(?i)\b[A-Z]:\\Users\\[^\\\s]+(?:\\[^\s,;]+)*")
 _POSIX_USER_PATH = re.compile(r"(?i)(?:/home/|/Users/)[^\s,;]+")
@@ -42,7 +54,11 @@ class PrivacyJsonFormatter(logging.Formatter):
         if isinstance(fields, dict):
             for key, value in fields.items():
                 if key in SAFE_FIELDS:
-                    payload[key] = value if isinstance(value, (int, float)) else redact_text(value)
+                    payload[key] = (
+                        value
+                        if value is None or isinstance(value, (int, float))
+                        else redact_text(value)
+                    )
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 

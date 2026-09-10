@@ -1,6 +1,7 @@
 """Fail-closed recovery and retention cleanup for task workspaces."""
 
 import asyncio
+import logging
 from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol
@@ -8,6 +9,7 @@ from typing import Protocol
 from localface_studio.application.task_creation import utc_now
 from localface_studio.application.task_repository import TaskRepository
 from localface_studio.domain.tasks import TaskRecord, TaskStatus, transition_task
+from localface_studio.infrastructure.logging import log_event
 
 DEFAULT_CLEANUP_INTERVAL_SECONDS = 60.0
 
@@ -59,8 +61,12 @@ class TaskCleanupService:
         """Expire successful results whose explicit retention deadline elapsed."""
         now = self._clock()
         for task in self._repository.list_due_for_expiry(now):
+            try:
+                self._workspaces.remove(task.task_id)
+            except OSError:
+                log_event(logging.getLogger("localface"), logging.WARNING, "expiry_cleanup_retry")
+                continue
             self._transition(task, TaskStatus.EXPIRED, now)
-            self._workspaces.remove(task.task_id)
 
     async def run_periodically(
         self,

@@ -16,6 +16,7 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 export interface BackendCapabilities {
+  swapModels: { id: string; available: boolean; nativeResolution: number }[]
   advisories: CapabilityAdvisory[]
   executionProvider: 'not_loaded' | 'cuda' | 'cpu'
   modelFilesPresent: boolean
@@ -65,6 +66,9 @@ export async function getCapabilities(signal: AbortSignal): Promise<BackendCapab
   if (
     !response.ok ||
     !isObject(payload) ||
+    !Array.isArray(payload.swap_models) || !payload.swap_models.every((item) =>
+      isObject(item) && typeof item.id === 'string' && typeof item.available === 'boolean' &&
+      typeof item.native_resolution === 'number') ||
     (payload.workflow_backend !== 'comfyui' &&
       payload.workflow_backend !== 'native-research' &&
       payload.workflow_backend !== 'simulation') ||
@@ -89,6 +93,8 @@ export async function getCapabilities(signal: AbortSignal): Promise<BackendCapab
   }
   return {
     workflowBackend: payload.workflow_backend,
+    swapModels: payload.swap_models.map((item) => ({ id: item.id as string,
+      available: item.available as boolean, nativeResolution: item.native_resolution as number })),
     modelFilesPresent: payload.model_files_present,
     modelIntegrityVerified: payload.model_integrity_verified,
     runtimeLoaded: payload.runtime_loaded,
@@ -118,6 +124,7 @@ export async function establishSession(signal: AbortSignal): Promise<string> {
 }
 
 export interface CreateTaskInput {
+  swapModelId?: string
   authorizationConfirmed: boolean
   researchModelLicenseAccepted: boolean
   csrfToken: string
@@ -151,6 +158,36 @@ export interface AvailableResult {
   expiresAt: string
   outputFormat: 'png' | 'jpeg'
   taskId: string
+  variants: ResultVariant[]
+  workflowBackend: string
+}
+
+export type ResultVariant = 'final' | 'base' | 'enhanced'
+
+export interface ResultArtifacts {
+  variants: ResultVariant[]
+  workflowBackend: string
+  metrics: Record<string, number | null>
+}
+
+function isVariant(value: unknown): value is ResultVariant {
+  return value === 'final' || value === 'base' || value === 'enhanced'
+}
+
+export async function getResultArtifacts(taskId: string, signal: AbortSignal): Promise<ResultArtifacts> {
+  const response = await fetch(`${API_ROOT}/tasks/${encodeURIComponent(taskId)}/artifacts`, {
+    credentials: 'same-origin', signal,
+  })
+  const payload = await readJson(response)
+  if (!response.ok || !isObject(payload) || !Array.isArray(payload.variants) ||
+      payload.variants.length === 0 || !payload.variants.every(isVariant) ||
+      typeof payload.workflow_backend !== 'string' || !isObject(payload.metrics) ||
+      !Object.values(payload.metrics).every((value) => value === null ||
+        (typeof value === 'number' && Number.isFinite(value)))) {
+    throw new Error('无法读取本次任务的真实结果清单。')
+  }
+  return { variants: payload.variants, workflowBackend: payload.workflow_backend,
+    metrics: payload.metrics as Record<string, number | null> }
 }
 
 export type FaceImageRole = 'source' | 'target'
@@ -202,6 +239,7 @@ export type WorkflowNode =
   | 'prepare'
   | 'simulate'
   | 'swap'
+  | 'enhance'
   | 'inspect'
   | 'export'
 
@@ -231,6 +269,7 @@ export async function createTask(input: CreateTaskInput): Promise<CreatedTask> {
   form.set('quality_preset', input.qualityPreset)
   form.set('watermark_enabled', String(input.watermarkEnabled))
   form.set('retention', input.retention)
+  if (input.swapModelId !== undefined) form.set('swap_model_id', input.swapModelId)
 
   const response = await fetch(`${API_ROOT}/tasks`, {
     method: 'POST',
@@ -340,6 +379,7 @@ const WORKFLOW_NODES = new Set<WorkflowNode>([
   'prepare',
   'simulate',
   'swap',
+  'enhance',
   'inspect',
   'export',
 ])
@@ -424,9 +464,10 @@ export async function getTask(taskId: string): Promise<TaskEvent> {
 export async function fetchTaskResult(
   taskId: string,
   signal: AbortSignal,
+  variant: ResultVariant = 'final',
 ): Promise<Blob> {
   const response = await fetch(
-    `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/result`,
+    taskResultUrl(taskId, variant),
     {
       credentials: 'same-origin',
       headers: { Accept: 'image/png,image/jpeg' },
@@ -476,7 +517,9 @@ export async function listAvailableResults(
       !Number.isFinite(Date.parse(item.completed_at)) ||
       typeof item.expires_at !== 'string' ||
       !Number.isFinite(Date.parse(item.expires_at)) ||
-      (item.output_format !== 'png' && item.output_format !== 'jpeg')
+      (item.output_format !== 'png' && item.output_format !== 'jpeg') ||
+      !Array.isArray(item.variants) || !item.variants.every(isVariant) ||
+      typeof item.workflow_backend !== 'string'
     ) {
       throw new Error('后端返回了无效的结果条目。')
     }
@@ -485,6 +528,8 @@ export async function listAvailableResults(
       completedAt: item.completed_at,
       expiresAt: item.expires_at,
       outputFormat: item.output_format,
+      variants: item.variants,
+      workflowBackend: item.workflow_backend,
     }
   })
 }
@@ -512,8 +557,12 @@ export async function deleteTaskResult(
   throw new Error(detail)
 }
 
-export function taskResultUrl(taskId: string): string {
-  return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/result`
+export function taskResultUrl(taskId: string, variant: ResultVariant = 'final'): string {
+  return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/result?variant=${variant}`
+}
+
+export function taskThumbnailUrl(taskId: string, variant: ResultVariant = 'final'): string {
+  return `${API_ROOT}/tasks/${encodeURIComponent(taskId)}/thumbnail?variant=${variant}`
 }
 
 export function taskEventsUrl(taskId: string): string {

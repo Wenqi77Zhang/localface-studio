@@ -35,7 +35,7 @@ def test_health_contract_and_query_is_not_logged(capsys) -> None:  # type: ignor
 
 def test_capabilities_distinguish_simulation_readiness() -> None:
     async def request_capabilities() -> httpx.Response:
-        transport = httpx.ASGITransport(app=create_app(Settings()))
+        transport = httpx.ASGITransport(app=create_app(Settings(workflow_backend="simulation")))
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://127.0.0.1",
@@ -47,6 +47,7 @@ def test_capabilities_distinguish_simulation_readiness() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "workflow_backend": "simulation",
+        "swap_models": [],
         "model_files_present": True,
         "model_integrity_verified": True,
         "runtime_loaded": True,

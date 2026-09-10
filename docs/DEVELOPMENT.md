@@ -172,6 +172,19 @@ Set-Location ..
 
 研究权重不得提交到 Git。`.gitignore` 已同时按 `models/` 目录和常见权重扩展名阻止提交，公开仓库扫描会再次检查。
 
+## 可选 AlphaFace 256（2026）
+
+接受非商业研究限制后，可从 [FaceFusion 模型发布](https://github.com/facefusion/facefusion-assets/releases/tag/models-3.9.0)单独取得 `alphaface_256.onnx`。不需要安装 FaceFusion，也不需要新的 Python 依赖，但仍依赖上面的 ArcFace 文件。
+
+| 项目 | 冻结值 |
+| --- | --- |
+| 相对路径 | `models/swappers/alphaface/alphaface_256.onnx` |
+| 字节数 | 555624110 |
+| SHA-256 | `efcca3ffa1c28b75a007f689b39f7d4716c02810e7fa72d892e175f0b058a2e2` |
+| 文件来源 | `https://github.com/facefusion/facefusion-assets/releases/download/models-3.9.0/alphaface_256.onnx` |
+
+目录不存在时先手动创建，用 `Get-FileHash models\swappers\alphaface\alphaface_256.onnx -Algorithm SHA256` 核验。来源失效或摘要不同时停止，不得跳过校验。重启页面后在高级设置选择模型。未取得 AlphaFace 不影响默认 InSwapper 使用。
+
 ## 当前能力边界
 
 - 默认 `scripts/start.ps1` 使用原生研究后端，支持 YuNet 或 SCRFD 检测、单目标人物换脸、CUDA 优先和显式 CPU 降级。

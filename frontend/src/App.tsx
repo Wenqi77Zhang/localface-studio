@@ -13,7 +13,6 @@ import {
   createTask,
   establishSession,
   getCapabilities,
-  fetchTaskResult,
   getTask,
   parseTaskEvent,
   taskEventsUrl,
@@ -35,8 +34,9 @@ const workflowStages = [
   { node: 'validate', number: '01', title: '文件校验', detail: '复核格式、尺寸和完整性' },
   { node: 'prepare', number: '02', title: '任务准备', detail: '建立隔离工作区和处理参数' },
   { node: 'swap', number: '03', title: '身份替换', detail: '仅替换已选择的目标人物' },
-  { node: 'inspect', number: '04', title: '输出检查', detail: '验证尺寸、编码和必要元数据' },
-  { node: 'export', number: '05', title: '安全导出', detail: '原子写入最终结果文件' },
+  { node: 'enhance', number: '04', title: '可选增强', detail: '保留基础结果，另存局部色彩优化版' },
+  { node: 'inspect', number: '05', title: '输出检查', detail: '验证尺寸、编码和必要元数据' },
+  { node: 'export', number: '06', title: '安全导出', detail: '原子写入最终结果文件' },
 ] as const
 
 const workflowOrder: readonly WorkflowNode[] = workflowStages.map((stage) => stage.node)
@@ -50,6 +50,15 @@ const terminalStatuses = new Set([
 ])
 const COMPLETED_TASK_RESET_DELAY_MS = 3_000
 const TASK_STATUS_POLL_INTERVAL_MS = 500
+const failureHints: Record<string, string> = {
+  model_file_missing: '模型文件缺失，请运行 diagnose.cmd 并按模型清单补齐。',
+  model_size_mismatch: '模型文件不完整，请重新下载并核对哈希。',
+  model_hash_mismatch: '模型完整性校验失败，程序已拒绝加载；请从登记来源重新取得。',
+  face_swap_runtime_missing: '推理依赖尚未安装，请运行 setup.cmd 后重试。',
+  native_output_unchanged: '模型未产生可检测的图像变化，未发布伪成功结果；请更换来源图重试。',
+  selected_face_not_reproduced: '人物选择无法复核，请重新检测并选择人物。',
+  native_output_shape_invalid: '模型输出不符合尺寸要求，结果已拦截。',
+}
 type NodeVisualState = 'pending' | 'active' | 'complete' | 'stopped'
 const nodeStateLabels: Record<NodeVisualState, string> = {
   pending: '等待',
@@ -154,6 +163,7 @@ function App() {
   const [outputFormat, setOutputFormat] = useState<OutputFormat>('png')
   const [jpegQuality, setJpegQuality] = useState(95)
   const [qualityPreset, setQualityPreset] = useState<QualityPreset>('balanced')
+  const [swapModelId, setSwapModelId] = useState('inswapper-128-research')
   const [retention, setRetention] = useState<Retention>('30m')
   const [watermarkEnabled, setWatermarkEnabled] = useState(true)
   const [detectorId, setDetectorId] = useState<DetectorId>('yunet-opencv')
@@ -165,9 +175,6 @@ function App() {
   const [taskEvent, setTaskEvent] = useState<TaskEvent | null>(null)
   const [eventError, setEventError] = useState<string | null>(null)
   const [workflowReset, setWorkflowReset] = useState(false)
-  const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(null)
-  const [resultLoading, setResultLoading] = useState(false)
-  const [resultError, setResultError] = useState<string | null>(null)
   const [validationAttempted, setValidationAttempted] = useState(false)
   const submitLock = useRef(false)
   const sourceDetection = useFaceDetection({
@@ -197,6 +204,8 @@ function App() {
         ])
         setApiState(healthy ? 'online' : 'offline')
         setCapabilities(backendCapabilities)
+        const firstAvailable = backendCapabilities.swapModels.find((model) => model.available)
+        if (firstAvailable) setSwapModelId(firstAvailable.id)
         setCsrfToken(csrf)
         setSessionState('ready')
       } catch {
@@ -256,9 +265,12 @@ function App() {
   const researchLicenseRequired =
     capabilities?.researchOnly === true || detectorId === 'scrfd-insightface-research'
   const researchLicenseReady = !researchLicenseRequired || scrfdResearchConfirmed
+  const selectedModelReady = capabilities?.workflowBackend !== 'native-research' ||
+    capabilities.swapModels.some((model) => model.id === swapModelId && model.available)
   const canSubmit =
     apiState === 'online' &&
     capabilities?.modelFilesPresent === true &&
+    selectedModelReady &&
     csrfToken !== null &&
     sourcePhoto !== null &&
     targetPhoto !== null &&
@@ -273,6 +285,7 @@ function App() {
   )
   const sharedPreviewRatio = knownRatios.length === 0 ? 16 / 9 : Math.min(...knownRatios)
   const missingRequirements = [
+    !selectedModelReady ? '所选换脸模型文件（请安装或切换已安装模型）' : null,
     capabilities?.advisories.includes('model_files_missing')
       ? '本地研究模型文件'
       : null,
@@ -358,40 +371,6 @@ function App() {
     return () => window.clearTimeout(timeout)
   }, [authorizationConfirmed, createdTask, taskInProgress])
 
-  useEffect(() => {
-    const controller = new AbortController()
-    let objectUrl: string | null = null
-    const loadResult = async () => {
-      if (createdTask === null || latestTaskStatus !== 'succeeded') {
-        setResultLoading(false)
-        setResultError(null)
-        setResultPreviewUrl(null)
-        return
-      }
-      setResultLoading(true)
-      setResultError(null)
-      try {
-        const result = await fetchTaskResult(createdTask.taskId, controller.signal)
-        objectUrl = URL.createObjectURL(result)
-        setResultPreviewUrl(objectUrl)
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setResultError(error instanceof Error ? error.message : '无法加载处理结果。')
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setResultLoading(false)
-        }
-      }
-    }
-    void loadResult()
-    return () => {
-      controller.abort()
-      if (objectUrl !== null) {
-        URL.revokeObjectURL(objectUrl)
-      }
-    }
-  }, [createdTask, latestTaskStatus])
 
   function changePhoto(role: 'source' | 'target', file: File | null) {
     if (role === 'source') {
@@ -455,6 +434,7 @@ function App() {
         jpegQuality,
         outputFormat,
         qualityPreset,
+        swapModelId: capabilities?.workflowBackend === 'native-research' ? swapModelId : undefined,
         retention,
         source: sourcePhoto,
         sourceDetection: sourceSelection,
@@ -657,7 +637,7 @@ function App() {
           <details className="advanced-settings">
             <summary>
               <span>高级设置</span>
-              <small>（检测模型、质量预设、输出格式、JPEG 质量、本地保留、AI 水印）</small>
+              <small>（检测与换脸模型、结果版本、输出格式、JPEG 质量、本地保留、AI 水印）</small>
             </summary>
             <section className="task-options" aria-label="高级处理设置">
               <label>
@@ -669,12 +649,9 @@ function App() {
                     changeDetector(event.currentTarget.value as DetectorId)
                   }
                 >
-                  <option value="yunet-opencv">YuNet（默认，可公开使用）</option>
+                  <option value="yunet-opencv">YuNet（轻量 · MIT 检测权重）</option>
                   <option value="scrfd-insightface-research">
                     SCRFD · InsightFace（实验，仅限非商业研究）
-                  </option>
-                  <option value="scrfd-custom" disabled>
-                    自训练 SCRFD（预留）
                   </option>
                 </select>
               </label>
@@ -688,8 +665,9 @@ function App() {
                 >
                   <strong>研究模型使用限制</strong>
                   <p>
-                    当前精准换脸使用 InsightFace 官方 InSwapper 与 ArcFace
-                    预训练权重；选择 SCRFD 时检测器也属于同一研究模型体系。这些权重仅限个人学习和非商业研究，不能用于公开商业服务。模型与图片均只在本机处理。
+                    InSwapper、ArcFace 以及可选 SCRFD 的官方预训练权重限非商业研究；AlphaFace
+                    当前转换权重的分发条款也限制商业使用，且仍依赖 ArcFace。
+                    项目代码开源不代表这些模型可商用。图片只提交给当前本地服务，不会发送到模型供应商。
                   </p>
                   <label className="checkbox-option research-license__confirm">
                     <input
@@ -706,8 +684,20 @@ function App() {
                     <span className="attention-text">请先确认研究模型使用限制。</span>
                   )}
               </div>}
+              {capabilities?.workflowBackend === 'native-research' && <label>
+                <span>换脸模型（本地、非商业研究）</span>
+                <select value={swapModelId} disabled={submitting || taskInProgress}
+                  onChange={(event) => setSwapModelId(event.currentTarget.value)}>
+                  {capabilities.swapModels.map((model) => <option key={model.id}
+                    value={model.id} disabled={!model.available}>
+                    {model.id === 'alphaface-256-research' ? 'AlphaFace 256 · 2026 新模型' : 'InSwapper 128 · 基线模型'}
+                    {!model.available ? '（未安装）' : ''}
+                  </option>)}
+                </select>
+                <span className="setting-hint">新模型不保证每张图都更好；切换后首次加载会较慢。检测模型与换脸模型是两个不同步骤。</span>
+              </label>}
               <label>
-                <span>质量预设</span>
+                <span>结果生成方式</span>
                 <select
                   value={qualityPreset}
                   disabled={submitting || taskInProgress}
@@ -715,8 +705,8 @@ function App() {
                     setQualityPreset(event.currentTarget.value as QualityPreset)
                   }
                 >
-                  <option value="balanced">平衡优化（推荐）</option>
-                  <option value="identity">身份优先（原始融合）</option>
+                  <option value="balanced">基础换脸 + 色彩优化（双结果）</option>
+                  <option value="identity">仅基础换脸（不增强）</option>
                 </select>
               </label>
               <label>
@@ -814,7 +804,9 @@ function App() {
                         <h3>{stage.title}</h3>
                         <p>{stage.detail}</p>
                       </div>
-                      <span className="node-state">{nodeStateLabels[nodeState]}</span>
+                      <span className="node-state">{stage.node === 'enhance' && createdTask !== null &&
+                        (createdTask.qualityPreset === 'identity' || capabilities?.workflowBackend !== 'native-research') &&
+                        nodeState === 'complete' ? '未启用' : nodeStateLabels[nodeState]}</span>
                     </article>
                     {index < workflowStages.length - 1 && (
                       <span className="flow-link" aria-hidden="true">↓</span>
@@ -831,11 +823,19 @@ function App() {
                 {createdTask
                   ? `任务状态：${taskEvent?.status ?? createdTask.status}`
                   : sourcePhoto && targetPhoto
-                    ? '两张图片已就绪，请确认授权后提交。'
+                    ? canSubmit ? '图片、人物选择与授权已就绪，可以开始处理。' : '图片已选择，请完成下方提示的检测、人物选择与授权。'
                     : '请先选择身份来源图和目标场景图。'}
               </p>
               {submitError && <p className="submit-error">{submitError}</p>}
               {eventError && <p className="submit-error">{eventError}</p>}
+              {latestTaskStatus === 'failed' && (
+                <p className="submit-error" role="alert">
+                  {failureHints[taskEvent?.errorCode ?? ''] ?? '处理失败，未发布结果。请检查模型诊断，或更换清晰、角度接近的图片重试。'}
+                  {taskEvent?.errorCode && `（错误代码：${taskEvent.errorCode}）`}
+                </p>
+              )}
+              {latestTaskStatus === 'timed_out' && <p className="submit-error">任务超过处理时限，结果已清理；请减少图片尺寸或检查本机资源。</p>}
+              {taskInProgress && <p>首次加载或切换模型可能需要较长时间；取消会等待当前推理安全停止。</p>}
             </div>
             <div className="submit-action">
               {validationAttempted && validationMessage && (
@@ -874,12 +874,11 @@ function App() {
             targetPhoto !== null && (
             <ResultPreview
               key={createdTask.taskId}
-              error={resultError}
-              loading={resultLoading}
+              taskId={createdTask.taskId}
+              expiresAt={createdTask.expiresAt}
               originalFile={targetPhoto}
               outputFormat={createdTask.outputFormat}
               previewRatio={targetRatio ?? 16 / 9}
-              previewUrl={resultPreviewUrl}
             />
           )}
         </div>

@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 from localface_studio.domain.images import ImageRole
-from localface_studio.domain.tasks import OutputFormat
+from localface_studio.domain.tasks import OutputFormat, ResultVariant
 
 _TASK_ID = re.compile(r"^[A-Za-z0-9_-]{32,64}$")
 _INPUT_SUFFIXES = ("png", "jpg", "webp")
@@ -66,10 +66,35 @@ class TaskWorkspaceStore:
             raise FileNotFoundError(f"expected one canonical {role.value} image")
         return matches[0]
 
-    def result_path(self, task_id: str, output_format: OutputFormat) -> Path:
+    def result_path(
+        self,
+        task_id: str,
+        output_format: OutputFormat,
+        variant: ResultVariant = ResultVariant.FINAL,
+    ) -> Path:
         """Return the fixed final result path for the requested encoding."""
         suffix = "jpg" if output_format is OutputFormat.JPEG else "png"
-        return self._workspace(task_id) / f"result.{suffix}"
+        workspace = self._workspace(task_id)
+        if variant is not ResultVariant.FINAL:
+            return workspace / f"{variant.value}.{suffix}"
+        for name in ("enhanced", "base", "result"):
+            candidate = workspace / f"{name}.{suffix}"
+            if candidate.is_file():
+                return candidate
+        return workspace / f"result.{suffix}"
+
+    def result_variants(self, task_id: str, output_format: OutputFormat) -> list[ResultVariant]:
+        variants = [
+            variant
+            for variant in (ResultVariant.BASE, ResultVariant.ENHANCED)
+            if self.result_path(task_id, output_format, variant).is_file()
+        ]
+        if not variants and self.result_path(task_id, output_format).is_file():
+            variants.append(ResultVariant.FINAL)
+        return variants
+
+    def metrics_path(self, task_id: str) -> Path:
+        return self._workspace(task_id) / "metrics.json"
 
     def result_staging_path(self, task_id: str) -> Path:
         """Return a fixed temporary result path used for atomic publication."""

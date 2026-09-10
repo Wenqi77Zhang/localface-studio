@@ -26,6 +26,7 @@ class WorkflowNode(StrEnum):
     PREPARE = "prepare"
     SIMULATE = "simulate"
     SWAP = "swap"
+    ENHANCE = "enhance"
     INSPECT = "inspect"
     EXPORT = "export"
 
@@ -35,6 +36,14 @@ class OutputFormat(StrEnum):
 
     PNG = "png"
     JPEG = "jpeg"
+
+
+class ResultVariant(StrEnum):
+    """Canonical artifacts, not caller-provided filenames."""
+
+    FINAL = "final"
+    BASE = "base"
+    ENHANCED = "enhanced"
 
 
 class QualityPreset(StrEnum):

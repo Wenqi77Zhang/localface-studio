@@ -7,27 +7,36 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useTaskResults } from './useTaskResults'
+import { type ResultVariant } from './api'
 
 interface ResultPreviewProps {
-  error: string | null
-  loading: boolean
+  taskId: string
+  expiresAt: string
   originalFile: File
   outputFormat: 'png' | 'jpeg'
   previewRatio: number
-  previewUrl: string | null
 }
 
 const DEFAULT_COMPARISON_POSITION = 50
 const KEYBOARD_STEP = 2
 
 function ResultPreview({
-  error,
-  loading,
+  taskId,
+  expiresAt,
   originalFile,
   outputFormat,
   previewRatio,
-  previewUrl,
 }: ResultPreviewProps) {
+  const { error, loading, urls, artifacts } = useTaskResults(taskId, expiresAt)
+  const [selectedVariant, setSelectedVariant] = useState<ResultVariant>('enhanced')
+  const [compareBase, setCompareBase] = useState(false)
+  const variant = artifacts?.variants.includes(selectedVariant) ? selectedVariant :
+    artifacts?.variants[0] ?? 'final'
+  const previewUrl = urls[variant] ?? null
+  const labels: Record<ResultVariant, string> = { base: '基础版', enhanced: '色彩优化版', final: '结果' }
+  const simulated = artifacts?.workflowBackend === 'simulation'
+  const downloadName = `localface-${simulated ? 'simulation-' : ''}${variant}.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`
   const [comparisonPosition, setComparisonPosition] = useState(
     DEFAULT_COMPARISON_POSITION,
   )
@@ -134,13 +143,15 @@ function ResultPreview({
     '--comparison-position': `${comparisonPosition}%`,
     '--comparison-ratio': String(previewRatio),
   } as CSSProperties
+  const comparisonUrl = compareBase && variant === 'enhanced' ? urls.base ?? originalUrl : originalUrl
+  const comparisonLabel = compareBase && variant === 'enhanced' ? '基础版' : '原图'
 
   return (
     <section className="result-preview" aria-labelledby="result-preview-title">
       <div className="result-preview__heading">
         <div>
           <span className="eyebrow">Before / after comparison</span>
-          <h3 id="result-preview-title">处理前后结果对比</h3>
+          <h3 id="result-preview-title">{simulated ? '模拟流程结果（未换脸）' : '换脸结果与对比'}</h3>
         </div>
         {previewUrl !== null && (
           <div className="result-preview__actions">
@@ -155,13 +166,36 @@ function ResultPreview({
             <a
               className="result-download"
               href={previewUrl}
-              download={`localface-simulation.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`}
+              download={downloadName}
             >
               下载{outputFormat === 'jpeg' ? ' JPEG' : ' PNG'}结果
             </a>
           </div>
         )}
       </div>
+
+      {artifacts !== null && (
+        <div className="result-variants" aria-label="结果版本与对比方式">
+          <div className="result-variants__tabs" role="group" aria-label="选择结果版本">
+            {artifacts.variants.map((item) => (
+              <button key={item} type="button" aria-pressed={variant === item}
+                onClick={() => setSelectedVariant(item)}>{labels[item]}</button>
+            ))}
+          </div>
+          {variant === 'enhanced' && urls.base !== undefined && (
+            <label><input type="checkbox" checked={compareBase}
+              onChange={(event) => setCompareBase(event.currentTarget.checked)} />
+              与基础版对比（未勾选时与原图对比）</label>
+          )}
+          <p>每个版本可独立下载；色彩优化是局部颜色校正，不会凭空修复五官或提高模型原生分辨率。</p>
+          {typeof artifacts.metrics.duration_ms === 'number' && (
+            <p className="result-metrics">本次处理 {(artifacts.metrics.duration_ms / 1000).toFixed(2)} 秒
+              {typeof artifacts.metrics.rss_peak_mb === 'number' &&
+                ` · 进程内存采样峰值 ${Math.round(artifacts.metrics.rss_peak_mb)} MB`}
+            </p>
+          )}
+        </div>
+      )}
 
       {loading && (
         <div className="result-preview__frame">
@@ -180,11 +214,11 @@ function ResultPreview({
           style={comparisonStyle}
           role="slider"
           tabIndex={0}
-          aria-label="拖动以比较原始目标场景图与模拟处理结果"
+          aria-label={`拖动以比较${comparisonLabel}与${labels[variant]}`}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(comparisonPosition)}
-          aria-valuetext={`原图显示 ${Math.round(comparisonPosition)}%，结果显示 ${Math.round(100 - comparisonPosition)}%`}
+          aria-valuetext={`${comparisonLabel}显示 ${Math.round(comparisonPosition)}%，${labels[variant]}显示 ${Math.round(100 - comparisonPosition)}%`}
           onKeyDown={moveWithKeyboard}
           onPointerDown={beginDragging}
           onPointerMove={continueDragging}
@@ -193,8 +227,8 @@ function ResultPreview({
         >
           <img
             className="result-comparison__image"
-            src={originalUrl}
-            alt="原始目标场景图"
+            src={comparisonUrl ?? undefined}
+            alt={comparisonLabel}
             draggable={false}
           />
           <div className="result-comparison__after" aria-hidden="true">
@@ -206,10 +240,10 @@ function ResultPreview({
             />
           </div>
           <span className="result-comparison__label result-comparison__label--before">
-            原图
+            {comparisonLabel}
           </span>
           <span className="result-comparison__label result-comparison__label--after">
-            结果
+            {labels[variant]}
           </span>
           <span className="result-comparison__divider" aria-hidden="true">
             <i>‹</i>
@@ -279,7 +313,7 @@ function ResultPreview({
                   <a
                     className="result-download"
                     href={previewUrl}
-                    download={`localface-simulation.${outputFormat === 'jpeg' ? 'jpg' : 'png'}`}
+                    download={downloadName}
                   >
                     下载结果
                   </a>

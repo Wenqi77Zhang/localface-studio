@@ -38,7 +38,13 @@ async def wait_for_status(
 
 def test_success_events_download_actor_isolation_and_delete(tmp_path: Path) -> None:
     async def scenario() -> None:
-        app = create_app(Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"))
+        app = create_app(
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            )
+        )
         async with running_client(app) as owner:
             csrf = await establish_session(owner)
             data, files = task_form()
@@ -85,6 +91,8 @@ def test_success_events_download_actor_isolation_and_delete(tmp_path: Path) -> N
                     "completed_at": succeeded["updated_at"],
                     "expires_at": succeeded["expires_at"],
                     "output_format": "png",
+                    "variants": ["final"],
+                    "workflow_backend": "simulation",
                 }
             ]
 
@@ -120,7 +128,11 @@ def test_running_task_must_be_cancelled_before_deletion(tmp_path: Path) -> None:
     async def scenario() -> None:
         backend = BlockingBackend()
         app = create_app(
-            Settings(log_level="CRITICAL", runtime_directory=tmp_path / "runtime"),
+            Settings(
+                workflow_backend="simulation",
+                log_level="CRITICAL",
+                runtime_directory=tmp_path / "runtime",
+            ),
             workflow_backend=backend,
         )
         async with running_client(app) as client:

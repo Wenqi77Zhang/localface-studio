@@ -83,6 +83,14 @@
 | 人脸增强权重 | 可选后处理 | 尚未选型；代码许可证不能代替权重和训练数据许可 | 待核验 | 阶段 5 前不得默认下载或启用。 |
 | 测试来源图与目标图 | 测试、截图和演示 | 必须为公共领域、CC0、明确允许相应用途的许可素材，或经书面授权/自行生成 | 待逐项登记 | 每个文件记录来源 URL、作者、许可证、下载日期、允许用途和本地哈希。 |
 
+### AlphaFace 256 新增资产（2026-09-11）
+
+采用 FaceFusion `models-3.9.0` 分发的 `alphaface_256.onnx`，555624110 字节，SHA-256 `efcca3ffa1c28b75a007f689b39f7d4716c02810e7fa72d892e175f0b058a2e2`。摘要与 GitHub 发布资产摘要核对，下载后再次计算一致。模型仅保存在被忽略的 `models/`，不镜像、不提交、不随包分发。
+
+[原作者代码](https://github.com/andrewyu90/Alphaface_Official)使用 MIT，但 [FaceFusion 3.9.0 模型登记](https://github.com/facefusion/facefusion/blob/3.9.0/facefusion/processors/modules/face_swapper/core.py)将转换权重标为 Non-Commercial，且此链仍依赖受限 ArcFace 权重。本项目保守按红色、非商业研究处理，`commercial_mode_allowed=false`；代码许可不能代替训练数据、转换权重或肖像授权。
+
+实际增强器只做局部色彩校正，没有新增生成式修复模型权重。未来自训练 SCRFD 仍需完整权利链与模型卡，不能仅更换文件名就宣称可商用。
+
 ### InsightFace 权重的关键限制
 
 InsightFace 官方明确区分：源代码采用 MIT；官方提供或自动下载的预训练模型仅限非商业研究。官方还要求 `inswapper` 系列的商业使用方联系其授权渠道。因此，项目不得因为 Python 包是 MIT 就宣称模型可商用。

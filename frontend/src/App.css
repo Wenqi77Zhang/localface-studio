@@ -1549,3 +1549,25 @@
 
   .node-state { display: none; }
 }
+.result-variants {
+  margin: 0 0 1.2rem;
+  padding: 1rem;
+  border: 1px solid rgba(119, 206, 201, 0.22);
+  border-radius: 16px;
+  background: rgba(7, 16, 22, 0.55);
+}
+.result-variants__tabs { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.8rem; }
+.result-variants__tabs button {
+  color: #b6c9d4; background: #101b25; border: 1px solid #30434e;
+  border-radius: 9px; padding: 0.55rem 0.9rem; cursor: pointer;
+}
+.result-variants__tabs button[aria-pressed="true"] {
+  color: #a5ede2; border-color: #83cfc2; background: #18312f;
+}
+.result-variants label { display: flex; align-items: center; gap: 0.5rem; color: #c3d2dc; }
+.result-variants p { margin: 0.6rem 0 0; color: #829ba9; font-size: 0.85rem; line-height: 1.7; }
+.local-result-card__versions { display: block; color: #a5cfc6; font-size: 0.75rem; }
+.result-lightbox__actions select {
+  color: #d8e6ec; background: #15232b; border: 1px solid #405762;
+  border-radius: 9px; padding: 0.45rem; max-width: 11rem;
+}

@@ -22,6 +22,8 @@ SAFE_METADATA_KEYS = frozenset(
         "execution_providers",
         "jpeg_quality",
         "quality_preset",
+        "result_variant",
+        "enhancer_id",
         "simulation",
         "statement",
         "swap_model_id",
