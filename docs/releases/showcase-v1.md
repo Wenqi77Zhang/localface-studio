@@ -33,6 +33,12 @@
 - 本地浏览器观察到的请求仅为站点的 HTML、CSS、JavaScript、SVG 四个 GET 请求，无表单或上传元素，无控制台/页面错误。
 - 公开仓库内容扫描通过。新增独立 `showcase-boundary` CI；检查不是渗透测试或完整无障碍审计。
 
+部署后另做匿名公网验证：HTML/CSS/JavaScript/SVG 均返回 HTTP 200；CSS、JavaScript、SVG 的 SHA-256 与公开源文件完全一致。Edge 公网步骤切换、Home 键、说明展开/关闭、390 像素宽度和返回顶部通过，无页面执行异常。
+
+已知非阻塞托管差异：Cloudflare 在 HTML 末尾注入动态内联校验脚本，因此 HTML 字节哈希与源文件不同；该脚本被页面禁止内联脚本的 CSP 拦截，公网控制台有 1 条安全策略错误。已观察的展示交互正常，但不宣称公网控制台零错误，也不为消除提示而放开 `unsafe-inline`。后续更换托管配置或访问策略时应复查该兼容性及不同网络下的访问。
+
+展示源码提交 `758ae6f` 的 [showcase-boundary](https://github.com/Wenqi77Zhang/localface-studio/actions/runs/40942130907)、[Windows quality-gates](https://github.com/Wenqi77Zhang/localface-studio/actions/runs/40942130936) 和 [CodeQL](https://github.com/Wenqi77Zhang/localface-studio/actions/runs/40942130912) 均已完成并通过；后续文档补充不改动已部署的四个资产。
+
 ## 发布溯源
 
 - GitHub 中 `showcase/` 保留可审查源文件，Sites 独立源码仓库只同步展示站点。
