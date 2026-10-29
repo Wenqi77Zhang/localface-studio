@@ -68,6 +68,12 @@ class Settings(BaseSettings):
         return f"http://{host}:{parsed.port}"
 
 
+class VerificationSettings(Settings):
+    """Smoke scripts provide isolated runtime/backend values and never load a user's .env."""
+
+    model_config = SettingsConfigDict(env_file=None)
+
+
 @lru_cache
 def get_settings() -> Settings:
     """Load and cache immutable process settings."""

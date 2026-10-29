@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 import threading
@@ -16,6 +17,9 @@ from urllib.request import urlopen
 
 import uvicorn
 
+from localface_studio.api.app import create_app
+from localface_studio.infrastructure.config import VerificationSettings
+
 ROOT = Path(__file__).resolve().parents[1]
 HOST = "127.0.0.1"
 BACKEND_PORT = 8000
@@ -23,13 +27,23 @@ FRONTEND_PORT = 5173
 
 
 def main() -> None:
-    """Run a bounded integration check and optionally capture a screenshot."""
+    """Keep integration checks separate from the user's app and retained images."""
     args = parse_args()
+    parent = ROOT / ".tools"
+    parent.mkdir(parents=True, exist_ok=True)
+    with (
+        tempfile.TemporaryDirectory(prefix="frontend-smoke-", dir=parent) as directory,
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener,
+    ):
+        listener.bind((HOST, args.backend_port))
+        verify(args, Path(directory), listener)
+
+
+def verify(args: argparse.Namespace, runtime_directory: Path, listener: socket.socket) -> None:
+    """Run a bounded integration check and optionally capture a screenshot."""
     frontend_url = f"http://{HOST}:{args.frontend_port}/"
     favicon_url = f"{frontend_url}favicon.svg"
     proxied_health_url = f"{frontend_url}api/v1/health"
-    os.environ["LOCALFACE_PORT"] = str(args.backend_port)
-    os.environ["LOCALFACE_FRONTEND_PORT"] = str(args.frontend_port)
     node = resolve_node()
     vite = ROOT / "frontend" / "node_modules" / "vite" / "bin" / "vite.js"
     if not vite.is_file():
@@ -37,37 +51,47 @@ def main() -> None:
 
     backend = uvicorn.Server(
         uvicorn.Config(
-            "localface_studio.main:app",
+            create_app(
+                VerificationSettings(
+                    host=HOST,
+                    port=args.backend_port,
+                    frontend_port=args.frontend_port,
+                    runtime_directory=runtime_directory,
+                    workflow_backend="simulation",
+                )
+            ),
             host=HOST,
             port=args.backend_port,
             log_level="warning",
         )
     )
-    backend_thread = threading.Thread(target=backend.run, daemon=True)
+    backend_thread = threading.Thread(
+        target=backend.run, kwargs={"sockets": [listener]}, daemon=True
+    )
     backend_thread.start()
 
     environment = clean_windows_environment()
     environment["LOCALFACE_API_TARGET"] = f"http://{HOST}:{args.backend_port}"
-    frontend = subprocess.Popen(
-        [
-            node,
-            str(vite),
-            "preview",
-            "--host",
-            HOST,
-            "--port",
-            str(args.frontend_port),
-            "--strictPort",
-        ],
-        cwd=ROOT / "frontend",
-        env=environment,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-
+    frontend: subprocess.Popen[str] | None = None
     try:
+        frontend = subprocess.Popen(
+            [
+                node,
+                str(vite),
+                "preview",
+                "--host",
+                HOST,
+                "--port",
+                str(args.frontend_port),
+                "--strictPort",
+            ],
+            cwd=ROOT / "frontend",
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
         html, frontend_headers = wait_for_response(frontend_url)
         if "LocalFace Studio" not in html:
             raise RuntimeError("The frontend HTML does not contain the product title.")
@@ -90,6 +114,8 @@ def main() -> None:
         health = json.loads(health_text)
         if health != {"status": "ok"}:
             raise RuntimeError(f"Unexpected proxied health response: {health!r}")
+        if frontend.poll() is not None or not backend.started:
+            raise RuntimeError("A verification service stopped before the checks completed.")
 
         result: dict[str, object] = {
             "frontend": "ok",
@@ -100,7 +126,8 @@ def main() -> None:
             result["screenshot"] = str(capture_screenshot(args.screenshot, frontend_url))
         print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     finally:
-        stop_process(frontend)
+        if frontend is not None:
+            stop_process(frontend)
         backend.should_exit = True
         backend_thread.join(timeout=5)
 

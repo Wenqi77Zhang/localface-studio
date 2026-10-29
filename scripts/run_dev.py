@@ -6,6 +6,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import tempfile
 import time
 import webbrowser
 from pathlib import Path
@@ -19,6 +20,17 @@ HOST = "127.0.0.1"
 def main() -> None:
     """Start both services, optionally open a browser, and clean up on exit."""
     args = parse_args()
+    if args.smoke_test:
+        parent = ROOT / ".tools"
+        parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="launcher-smoke-", dir=parent) as directory:
+            run_services(args, smoke_runtime=Path(directory))
+    else:
+        run_services(args)
+
+
+def run_services(args: argparse.Namespace, *, smoke_runtime: Path | None = None) -> None:
+    """Only an explicitly requested normal launch may use the user's runtime."""
     backend_url = f"http://{HOST}:{args.backend_port}/api/v1/health"
     frontend_url = f"http://{HOST}:{args.frontend_port}/"
     python = ROOT / ".venv" / "Scripts" / "python.exe"
@@ -34,6 +46,14 @@ def main() -> None:
     environment["LOCALFACE_API_TARGET"] = f"http://{HOST}:{args.backend_port}"
     environment["LOCALFACE_PORT"] = str(args.backend_port)
     environment["LOCALFACE_FRONTEND_PORT"] = str(args.frontend_port)
+    if args.smoke_test:
+        if smoke_runtime is None:
+            raise ValueError("smoke mode requires an isolated runtime directory")
+        for key in tuple(environment):
+            if key.casefold() in {"localface_runtime_directory", "localface_workflow_backend"}:
+                environment.pop(key)
+        environment["LOCALFACE_RUNTIME_DIRECTORY"] = str(smoke_runtime)
+        environment["LOCALFACE_WORKFLOW_BACKEND"] = "simulation"
     backend = subprocess.Popen(
         [
             str(python),
@@ -49,23 +69,23 @@ def main() -> None:
         env=environment,
         creationflags=creation_flags,
     )
-    frontend = subprocess.Popen(
-        [
-            node,
-            str(vite),
-            "preview",
-            "--host",
-            HOST,
-            "--port",
-            str(args.frontend_port),
-            "--strictPort",
-        ],
-        cwd=ROOT / "frontend",
-        env=environment,
-        creationflags=creation_flags,
-    )
-
+    frontend: subprocess.Popen[bytes] | None = None
     try:
+        frontend = subprocess.Popen(
+            [
+                node,
+                str(vite),
+                "preview",
+                "--host",
+                HOST,
+                "--port",
+                str(args.frontend_port),
+                "--strictPort",
+            ],
+            cwd=ROOT / "frontend",
+            env=environment,
+            creationflags=creation_flags,
+        )
         wait_until_ready(backend_url, backend, frontend)
         wait_until_ready(frontend_url, backend, frontend)
         print(f"LocalFace Studio is ready: {frontend_url}")
@@ -80,7 +100,8 @@ def main() -> None:
     except KeyboardInterrupt:
         print("Stopping LocalFace Studio...")
     finally:
-        stop_process(frontend)
+        if frontend is not None:
+            stop_process(frontend)
         stop_process(backend)
 
 

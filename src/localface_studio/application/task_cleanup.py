@@ -39,6 +39,7 @@ class TaskCleanupService:
         self._repository = repository
         self._workspaces = workspaces
         self._clock = clock
+        self._pending_removals: set[str] = set()
 
     def recover_startup(self) -> None:
         """Remove orphaned bytes and terminalize work abandoned by a restart."""
@@ -48,14 +49,27 @@ class TaskCleanupService:
         for task in records:
             if task.status in {TaskStatus.QUEUED, TaskStatus.RUNNING}:
                 task = self._transition(task, TaskStatus.TIMED_OUT, now)
-            elif task.status is TaskStatus.SUCCEEDED and task.expires_at <= now:
-                task = self._transition(task, TaskStatus.EXPIRED, now)
             if task.status is not TaskStatus.SUCCEEDED:
-                self._workspaces.remove(task.task_id)
+                self._remove_or_defer(task.task_id)
 
         for task_id in self._workspaces.list_task_ids():
             if task_id not in known_ids:
-                self._workspaces.remove(task_id)
+                self._remove_or_defer(task_id)
+        self.expire_due()
+
+    def retry_pending_removals(self) -> None:
+        """Retry only known restart remnants, never rescan live upload directories."""
+        for task_id in tuple(self._pending_removals):
+            self._remove_or_defer(task_id)
+
+    def _remove_or_defer(self, task_id: str) -> None:
+        try:
+            self._workspaces.remove(task_id)
+        except OSError:
+            self._pending_removals.add(task_id)
+            log_event(logging.getLogger("localface"), logging.WARNING, "startup_cleanup_retry")
+        else:
+            self._pending_removals.discard(task_id)
 
     def expire_due(self) -> None:
         """Expire successful results whose explicit retention deadline elapsed."""
@@ -81,6 +95,7 @@ class TaskCleanupService:
             try:
                 await asyncio.wait_for(stop.wait(), timeout=interval_seconds)
             except TimeoutError:
+                self.retry_pending_removals()
                 self.expire_due()
 
     def _transition(

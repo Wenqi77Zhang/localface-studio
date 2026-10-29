@@ -1,6 +1,7 @@
 """Restart recovery, orphan removal, and periodic retention tests."""
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -172,3 +173,94 @@ def test_success_cleanup_preserves_only_result(tmp_path: Path) -> None:
     workspaces.remove_inputs(identifier)
 
     assert [path.name for path in workspace.iterdir()] == ["result.png"]
+
+
+def test_startup_permission_failures_are_retried_without_deleting_new_uploads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(logging.getLogger("localface"), "propagate", True)
+    caplog.set_level(logging.WARNING, logger="localface")
+
+    async def scenario() -> None:
+        now = datetime.now(UTC)
+        repository = SqliteTaskRepository(tmp_path / "tasks.sqlite3")
+        repository.initialize()
+        workspaces = TaskWorkspaceStore(tmp_path / "tasks")
+        abandoned = create_task(
+            repository,
+            identifier=task_id("abandoned"),
+            created_at=now - timedelta(minutes=5),
+            expires_at=now + timedelta(minutes=25),
+            status=TaskStatus.RUNNING,
+        )
+        orphan = task_id("orphan-busy")
+        for identifier in (abandoned.task_id, orphan):
+            workspaces.create(identifier)
+        remove = workspaces.remove
+        locked = True
+        remaining = {abandoned.task_id, orphan}
+        cleaned = asyncio.Event()
+
+        def remove_when_unlocked(identifier: str) -> None:
+            if locked:
+                raise PermissionError("private path must not appear in logs")
+            remove(identifier)
+            remaining.discard(identifier)
+            if not remaining:
+                cleaned.set()
+
+        monkeypatch.setattr(workspaces, "remove", remove_when_unlocked)
+        cleanup = TaskCleanupService(repository, workspaces, clock=lambda: now)
+        cleanup.recover_startup()
+        task = repository.get_for_actor(abandoned.task_id, abandoned.actor_id)
+        assert task is not None and task.status is TaskStatus.TIMED_OUT
+        assert len(workspaces.list_task_ids()) == 2
+        assert "startup_cleanup_retry" in caplog.text
+        assert "private path" not in caplog.text
+
+        # A newly uploading file can legitimately precede its task DB record.
+        fresh = task_id("new-upload-in-flight")
+        workspaces.create(fresh)
+        locked = False
+        stop = asyncio.Event()
+        worker = asyncio.create_task(cleanup.run_periodically(stop, interval_seconds=0.01))
+        try:
+            await asyncio.wait_for(cleaned.wait(), timeout=3)
+        finally:
+            stop.set()
+            await worker
+        assert workspaces.list_task_ids() == (fresh,)
+
+    asyncio.run(scenario())
+
+
+def test_startup_does_not_mark_expired_until_bytes_are_removed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime.now(UTC)
+    repository = SqliteTaskRepository(tmp_path / "tasks.sqlite3")
+    repository.initialize()
+    workspaces = TaskWorkspaceStore(tmp_path / "tasks")
+    due = create_task(
+        repository,
+        identifier=task_id("startup-expiry-busy"),
+        created_at=now - timedelta(hours=2),
+        expires_at=now - timedelta(hours=1),
+        status=TaskStatus.SUCCEEDED,
+    )
+    workspaces.create(due.task_id)
+    remove = workspaces.remove
+
+    def locked(identifier: str) -> None:
+        raise PermissionError("busy")
+
+    monkeypatch.setattr(workspaces, "remove", locked)
+    TaskCleanupService(repository, workspaces, clock=lambda: now).recover_startup()
+    assert repository.list_due_for_expiry(now) == [due]
+    monkeypatch.setattr(workspaces, "remove", remove)
+    TaskCleanupService(repository, workspaces, clock=lambda: now).recover_startup()
+    assert repository.list_due_for_expiry(now) == []
+    assert workspaces.list_task_ids() == ()

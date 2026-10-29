@@ -4,6 +4,8 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 当前版本：`1.0.0rc3`。真实本地单张照片换脸，支持 InSwapper 128 与 AlphaFace 256 切换、基础/色彩优化双结果和独立下载。阶段 16 已补齐此前缺失的处理接口、双工件与资源采样；复杂照片的视觉质量、独立干净 Windows 复现及产品负责人验收仍有边界，不创建稳定 `v1.0.0` 标签。
 
+2026-10-30 复查已修复验证脚本访问真实运行目录和启动清理失败中断问题，173 项测试与完整工程质量门通过。公开展示项目与开放注册处理照片仍需分开验收，见[成熟度审计](docs/MATURITY_AUDIT.md)及[上线门禁](docs/PUBLIC_DEPLOYMENT_READINESS.md)。
+
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
 ## Windows 快速开始
