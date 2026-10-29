@@ -1,0 +1,21 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="64"
+  height="64"
+  viewBox="0 0 64 64"
+>
+  <rect
+    x="1"
+    y="1"
+    width="62"
+    height="62"
+    rx="19"
+    fill="#182b26"
+    stroke="#608c7b"
+    stroke-width="2"
+  />
+  <path
+    d="M18 20v25h14v-5h-9V20zm20 0v25h5V35h9v-5h-9v-5h11v-5z"
+    fill="#a5e6cd"
+  />
+</svg>
