@@ -27,5 +27,3 @@ jobs:
           node-version: "24.18.0"
       - name: Check public static boundary and references
         run: node scripts/verify_showcase.mjs
-      - name: Check browser script syntax
-        run: node --check showcase/app.js

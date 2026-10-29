@@ -8,7 +8,7 @@ LocalFace Studio 是一个以隐私优先为原则、完全本地运行的单张
 
 公开仓库：[Wenqi77Zhang/localface-studio](https://github.com/Wenqi77Zhang/localface-studio)
 
-公开展示：[LocalFace Studio 项目介绍](https://localface-studio.stonyring261.chatgpt.site)。这是独立静态介绍页，不接收访客图片、不提供在线换脸，也不连接本机服务。源码见 [showcase](showcase/README.md)，发布与验收记录见[展示版 v1](docs/releases/showcase-v1.md)。
+公开展示：[LocalFace Studio 工程案例](https://localface-studio.stonyring261.chatgpt.site)。面向招聘方与技术评审，聚焦工程实现、模型选型和验证边界；不接收图片、不提供在线换脸，也不连接本机服务。源码见 [showcase](showcase/README.md)，发布记录见[展示版 v2](docs/releases/showcase-v2.md)。
 
 ## Windows 快速开始
 

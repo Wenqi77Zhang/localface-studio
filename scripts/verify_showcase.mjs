@@ -6,26 +6,58 @@ import { fileURLToPath } from "node:url";
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const directory = resolve(process.argv[2] ?? resolve(repository, "showcase"));
-const files = ["app.js", "favicon.svg", "index.html", "styles.css"];
-const entries = readdirSync(directory).filter((file) => file !== "README.md").sort();
-assert.deepEqual(entries, files, "Only reviewed static assets may be published");
-const sources = files.map((file) => readFileSync(resolve(directory, file), "utf8"));
-const html = sources[2];
-const javascript = sources[0];
+const files = ["favicon.svg", "index.html", "styles.css"];
+const entries = readdirSync(directory)
+  .filter((file) => file !== "README.md")
+  .sort();
+assert.deepEqual(
+  entries,
+  files,
+  "Only reviewed static assets may be published",
+);
+const sources = files.map((file) =>
+  readFileSync(resolve(directory, file), "utf8"),
+);
+const html = sources[1];
 const combined = sources.join("\n");
-const bytes = files.reduce((sum, file) => sum + statSync(resolve(directory, file)).size, 0);
-assert.ok(bytes < 150_000, "Keep the buildless page lightweight");
-assert.ok(!/<(?:form|input|iframe|object|embed|video|audio)\b/i.test(html), "No uploads, forms or private media");
-assert.ok(!/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon|localStorage|sessionStorage)\b/.test(javascript), "No data requests or visitor storage");
+const bytes = files.reduce(
+  (sum, file) => sum + statSync(resolve(directory, file)).size,
+  0,
+);
+assert.ok(bytes < 50_000, "Keep the concise case study lightweight");
+assert.ok(
+  !/<(?:form|input|iframe|object|embed|video|audio)\b/i.test(html),
+  "No uploads, forms or private media",
+);
 assert.ok(!/\bon\w+\s*=|javascript:/i.test(html), "No inline event code");
-assert.ok(!/@import|\burl\s*\(/i.test(sources[3]), "No hidden CSS resource requests");
-assert.ok(!/<(?:script|foreignObject|image)\b|\b(?:href|on\w+)\s*=/i.test(sources[1]), "Keep the icon self-contained");
-const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
-assert.equal(scripts.length, 1, "Exactly one reviewed browser script");
-assert.ok(scripts[0][1].includes('src="./app.js"') && !scripts[0][2].trim(), "No inline or external scripts");
-assert.ok(!/[A-Z]:[\\/]Users[\\/]|\b(?:ghp|github_pat)_[A-Za-z0-9_]+|BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY/i.test(combined), "No local paths or credentials");
-assert.ok(html.includes("connect-src 'none'") && html.includes("form-action 'none'"), "CSP must block API and form submission");
-assert.ok(html.includes('lang="zh-CN"') && html.includes('name="viewport"'), "Language and mobile metadata required");
+assert.ok(
+  !/@import|\burl\s*\(/i.test(sources[2]),
+  "No hidden CSS resource requests",
+);
+assert.ok(
+  !/<(?:script|foreignObject|image)\b|\b(?:href|on\w+)\s*=/i.test(sources[0]),
+  "Keep the icon self-contained",
+);
+assert.ok(
+  !/<script\b/i.test(html),
+  "No browser script is needed for this case study",
+);
+assert.ok(
+  !/[A-Z]:[\\/]Users[\\/]|\b(?:ghp|github_pat)_[A-Za-z0-9_]+|BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY/i.test(
+    combined,
+  ),
+  "No local paths or credentials",
+);
+assert.ok(
+  html.includes("script-src 'none'") &&
+    html.includes("connect-src 'none'") &&
+    html.includes("form-action 'none'"),
+  "CSP must block scripts, API and form submission",
+);
+assert.ok(
+  html.includes('lang="zh-CN"') && html.includes('name="viewport"'),
+  "Language and mobile metadata required",
+);
 assert.equal((html.match(/<h1\b/g) ?? []).length, 1, "One document title");
 
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
@@ -40,20 +72,62 @@ for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {
   } else {
     const url = new URL(href);
     assert.equal(url.protocol, "https:");
-    assert.ok(["github.com", "localface-studio.stonyring261.chatgpt.site"].includes(url.hostname), `Unexpected external destination: ${url.hostname}`);
-    const doc = url.pathname.match(/^\/Wenqi77Zhang\/localface-studio\/blob\/(?:main|[a-f0-9]{40})\/(.+)$/);
-    if (doc) assert.ok(statSync(resolve(repository, doc[1])).isFile(), `Missing linked document: ${doc[1]}`);
+    assert.ok(
+      ["github.com", "localface-studio.stonyring261.chatgpt.site"].includes(
+        url.hostname,
+      ),
+      `Unexpected external destination: ${url.hostname}`,
+    );
+    const doc = url.pathname.match(
+      /^\/Wenqi77Zhang\/localface-studio\/blob\/(?:main|[a-f0-9]{40})\/(.+)$/,
+    );
+    if (doc)
+      assert.ok(
+        statSync(resolve(repository, doc[1])).isFile(),
+        `Missing linked document: ${doc[1]}`,
+      );
   }
 }
 for (const [, source] of html.matchAll(/\bsrc="([^"]+)"/g)) {
-  assert.ok(source.startsWith("./") && files.includes(source.slice(2)), `Unexpected resource: ${source}`);
+  assert.ok(
+    source.startsWith("./") && files.includes(source.slice(2)),
+    `Unexpected resource: ${source}`,
+  );
 }
-for (const [, target] of html.matchAll(/aria-(?:controls|labelledby)="([^"]+)"/g)) {
-  for (const id of target.split(" ")) assert.ok(ids.includes(id), `Missing accessible reference: ${id}`);
+for (const [, target] of html.matchAll(
+  /aria-(?:controls|labelledby)="([^"]+)"/g,
+)) {
+  for (const id of target.split(" "))
+    assert.ok(ids.includes(id), `Missing accessible reference: ${id}`);
 }
-assert.equal((html.match(/role="tab"/g) ?? []).length, 5);
-assert.equal((html.match(/role="tabpanel"/g) ?? []).length, 5);
-assert.equal((html.match(/<details>/g) ?? []).length, 5);
-assert.ok(html.includes("非实拍") && html.includes("非换脸结果") && html.includes("不提供在线换脸"));
-assert.ok(html.includes("不是准确率") && html.includes("不是实时状态"));
-console.log(JSON.stringify({ status: "ok", files: files.length, bytes, links, boundary: "static-showcase-only" }));
+const bodyText = html
+  .split(/<body\b[^>]*>/)[1]
+  .replace(/<[^>]+>/g, "")
+  .replace(/\s+/g, " ");
+assert.ok(
+  bodyText.includes("不提供在线换脸") &&
+    bodyText.includes("AI 辅助开发") &&
+    bodyText.includes("未自行训练"),
+  "Disclose the online-service and contribution boundaries",
+);
+assert.ok(
+  bodyText.includes("不是准确率") &&
+    bodyText.includes("同一来源身份") &&
+    bodyText.includes("134d452"),
+  "Keep benchmark limits and dated engineering evidence",
+);
+const hanCharacters = (bodyText.match(/\p{Script=Han}/gu) ?? []).length;
+assert.ok(
+  hanCharacters < 1200,
+  "Move detailed engineering records to linked docs, not the showcase",
+);
+console.log(
+  JSON.stringify({
+    status: "ok",
+    files: files.length,
+    bytes,
+    links,
+    hanCharacters,
+    boundary: "static-case-study-only",
+  }),
+);

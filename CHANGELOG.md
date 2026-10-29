@@ -4,6 +4,7 @@ All notable project changes are recorded here. The project follows semantic vers
 
 ## Unreleased — v1.0.0 release candidate
 
+- Reframed the public showcase as a concise recruiter/technical-review case study: concrete engineering decisions, model-selection evidence and honest contribution boundaries; removed workflow tabs, repeated FAQs and all browser JavaScript.
 - Published a separate public, buildless showcase with an interactive workflow explanation, dated evidence, model-study limitations and explicit no-upload/no-inference boundaries; added a four-asset publication allowlist check and dedicated CI.
 - Completed the local single-image face-swap product flow with multi-face detection and one selected target.
 - Added YuNet and gated SCRFD detection profiles, plus a GPU-first native ArcFace/InSwapper research backend.
