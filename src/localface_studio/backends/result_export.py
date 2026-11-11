@@ -52,7 +52,13 @@ def draw_ai_watermark(image: Image.Image) -> None:
         radius=max(4, padding),
         fill=(0, 0, 0, 180),
     )
-    draw.text((left + padding, top + padding), AI_WATERMARK, font=font, fill=(255, 255, 255, 240))
+    # textbbox includes the font's bearing; compensate before placing glyphs.
+    draw.text(
+        (left + padding - box[0], top + padding - box[1]),
+        AI_WATERMARK,
+        font=font,
+        fill=(255, 255, 255, 240),
+    )
 
 
 def save_result(
